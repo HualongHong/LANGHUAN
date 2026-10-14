@@ -43,19 +43,23 @@ Lit-Scout-Harvester 的标注方法学来自万级文献真实标注项目的经
 
 ## 安装
 
-### 方式一：直接使用构建产物（推荐）
+### 方式一：一键安装整个套件（推荐）
 
-每个技能独立打包为 zip（`dist/*-skill.zip`），自包含、无需 pip 安装：
+`scripts/install_plugin.sh` 把 LangHuan 作为**一个整体**安装：解压全部 4 个技能 + 创建统一密钥配置（key 只需填一处）。
 
 ```bash
-# 1. 解压到宿主 Agent 的技能目录（以 DSH 类目录为例，Kimi/TRAE/Codex 找各自的 skills 目录）
-unzip dist/langhuan-lit-scout-harvester-skill.zip \
-  -d ~/.agents/skills/langhuan-lit-scout-harvester/
+git clone git@github.com:HualongHong/LANGHUAN.git && cd LANGHuan
 
-# 2. 按需配置密钥（支持零 key 运行：不配置则自动走 agent_bridge 工单模式）
-cp ~/.agents/skills/langhuan-lit-scout-harvester/.env.example ~/.agents/skills/langhuan-lit-scout-harvester/.env
-# 编辑 .env 填入 DEEPSEEK_API_KEY / MINIMAX_API_KEY 等
+# 安装全部技能到宿主技能目录（默认 ~/.agents/skills，可用 --target 指定）
+bash scripts/install_plugin.sh install
+
+# 只需在这一个文件里填 API key（DeepSeek / MiniMax / Qwen / OpenAlex 邮件占位）
+vim ~/.agents/skills/langhuan.env
+
+# 重启宿主 Agent（DSH / Kimi / TRAE / Codex）即可按 triggers 唤起 4 个技能
 ```
+
+key 管理是**单入口**的：中央文件 `~/.agents/skills/langhuan.env` 经**硬链接**分发给各 `langhuan-*/.env`——改中央文件即实时改全部，无需同步操作；若硬链接失效（跨卷/文件被复制），跑一次 `bash scripts/install_plugin.sh sync-env` 重建。不填 key 也能运行：技能自动走 agent_bridge 零 key 模式（模型调用由宿主 Agent 完成）。
 
 ### 方式二：从源码构建
 
