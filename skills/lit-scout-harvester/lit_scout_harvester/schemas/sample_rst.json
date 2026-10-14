@@ -1,0 +1,127 @@
+{
+  "name": "sample_rst",
+  "description": "Sample type, proxy indicator, source location, time scale, scientific question and contribution extraction for paleoclimate/archaeological records",
+  "version": "1.2",
+  "prompt_hints": [
+    "Only extract information explicitly stated or directly inferable from the title and abstract.",
+    "If multiple values apply, return them as separate strings in the JSON array.",
+    "Do not invent values that are not supported by the text.",
+    "Before producing the final JSON, think step by step inside a <reasoning> block:\n1. For each field, list the raw clues you find in the title/abstract.\n2. Map every raw clue to the broad standardized categories described in the field guidelines.\n3. If a raw clue is too specific (e.g. 'cosmogenic isotopes', 'past 50 years', 'erosion rates'), replace it with the corresponding broad category.\n4. After reasoning, output only the JSON object.",
+    "Here are examples of the desired output format:\n\nExample 1:\nTitle: Evidence for abrupt climate changes in annually laminated marine sediments\nExtracted: {\"sampleType\": [\"marine sediments\"], \"indicator\": [\"diatoms\", \"grain size\", \"biogenic silica\"], \"sampleSource\": [\"Equatorial Pacific\", \"Southern Ocean\"], \"timeScale\": [\"interannual-seasonal\"], \"sciQuestion\": [\"paleoclimate reconstruction\", \"biogeochemical cycles\", \"ocean circulation\"], \"contribution\": [\"scientific value\"]}\n\nExample 2:\nTitle: Decoupling of Monsoon Dynamics and Thermodynamics Under Global Warming: Evidence From Multi-Proxy Records in a Single Speleothem\nExtracted: {\"sampleType\": [\"stalagmites\"], \"indicator\": [\"stable isotopes\", \"elemental geochemistry\", \"U-series dating\"], \"sampleSource\": [\"Zhangjia Cave\", \"Sichuan Basin\", \"southwestern China\"], \"timeScale\": [\"past century\"], \"sciQuestion\": [\"paleoclimate reconstruction\", \"global warming\"], \"contribution\": [\"scientific value\"]}\n\nExample 3:\nTitle: Varve microfabric record of seasonal sedimentation and bottom flow-modulated mud deposition in the coastal northern Baltic Sea\nExtracted: {\"sampleType\": [\"marine sediments\"], \"indicator\": [\"diatoms\", \"grain size\", \"radionuclides\", \"organic matter\"], \"sampleSource\": [\"coastal Gulf of Finland\", \"Archipelago Sea\", \"northern Baltic Sea\"], \"timeScale\": [\"past century\"], \"sciQuestion\": [\"erosion and sedimentation processes\", \"ecological and environmental evolution\", \"human activity impacts\"], \"contribution\": [\"scientific value\", \"technical value\"]}\n\nExample 4:\nTitle: Maar and crater lakes of the Long Gang Volcanic Field (NE China) - overview, laminated sediments, and vegetation history of the last 900 years\nExtracted: {\"sampleType\": [\"lake sediments\"], \"indicator\": [\"pollen/spores\", \"elemental geochemistry\"], \"sampleSource\": [\"Long Gang Volcanic Field\", \"Lake Sihailongwan\", \"northeastern China\"], \"timeScale\": [\"past millennium\"], \"sciQuestion\": [\"paleoclimate reconstruction\", \"paleoenvironmental reconstruction\", \"human activity impacts\"], \"contribution\": [\"scientific value\"]}"
+  ],
+  "fields": [
+    {
+      "name": "sampleType",
+      "type": "list[str]",
+      "description": "Type of archive or sample material.",
+      "guidelines": [
+        "Use broad, standardized categories (e.g., lake sediments, marine sediments, stalagmites, ice cores, corals, tree rings, cave deposits, peat, loess, archaeological remains).",
+        "Do not return specific minerals, tissues, or chemical fractions as sample types."
+      ],
+      "examples": [
+        "lake sediments",
+        "marine sediments",
+        "stalagmites",
+        "ice cores"
+      ],
+      "term_style": "standard",
+      "max_words_per_term": 4,
+      "max_items": 5
+    },
+    {
+      "name": "indicator",
+      "type": "list[str]",
+      "description": "Proxy indicators or analytical methods used to derive paleoclimate information.",
+      "guidelines": [
+        "Return broad proxy categories, not the specific measured substances.",
+        "Examples of correct values: stable isotopes, pollen/spores, grain size, diatoms, elemental geochemistry, radionuclides, biogenic silica, biomarkers, varve thickness, U-series dating.",
+        "Examples of incorrect values: total organic carbon, total nitrogen, Cs-137 geochronology, snow accumulation, sulphate, lead, Nymphaeaceae trichosclereids."
+      ],
+      "examples": [
+        "stable isotopes",
+        "grain size",
+        "pollen/spores",
+        "radionuclides"
+      ],
+      "max_items": 8,
+      "term_style": "standard",
+      "max_words_per_term": 4
+    },
+    {
+      "name": "sampleSource",
+      "type": "list[str]",
+      "description": "Geographic source or sampling locations.",
+      "guidelines": [
+        "Include region names, site names, and country/area identifiers mentioned in the text.",
+        "When both a specific site and a broader country/region are mentioned, include the broader country/region. Site names may also be kept when they are central to the study.",
+        "Keep each location as a separate value."
+      ],
+      "examples": [
+        "Greenland",
+        "Zhangjia Cave",
+        "Sichuan Basin",
+        "northeastern China"
+      ],
+      "max_items": 5,
+      "term_style": "standard",
+      "max_words_per_term": 4
+    },
+    {
+      "name": "timeScale",
+      "type": "list[str]",
+      "description": "Temporal scale or geological period covered by the study.",
+      "guidelines": [
+        "Map specific numeric age ranges to standardized period/scale terms.",
+        "Examples of correct values: Holocene, Pleistocene, past millennium, past century, past 50 years, decadal scale, interannual-seasonal.",
+        "Examples of incorrect values: 8740-8060 cal. yr BP, AD 1940-2004, last 2800 years."
+      ],
+      "examples": [
+        "Holocene",
+        "past millennium",
+        "past century",
+        "decadal scale"
+      ],
+      "max_items": 3,
+      "term_style": "standard",
+      "max_words_per_term": 4
+    },
+    {
+      "name": "sciQuestion",
+      "type": "list[str]",
+      "description": "Scientific questions or research aims addressed by the study.",
+      "guidelines": [
+        "Use broad, generic research aims from the domain.",
+        "Examples of correct values: paleoclimate reconstruction, paleoenvironmental reconstruction, ecological and environmental evolution, human activity impacts, ocean circulation, biogeochemical cycles, hydrological changes, lake evolution, fire history, archaeology and human activities, erosion and sedimentation processes, tectonic activity, sea level changes, environmental pollution, global warming.",
+        "Examples of incorrect values: eutrophication history, anthropogenic nutrient input, landscape dynamics, ecosystem responses to climate change.",
+        "Mapping hints: 'erosion rates' or 'landscape evolution' -> 'erosion and sedimentation processes'; 'archaeological' or 'human occupation' -> 'archaeology and human activities'; 'paleo-seismic' -> 'tectonic activity'; 'sea-level' -> 'sea level changes'; 'pollution history' or 'eutrophication' -> 'environmental pollution'; 'lake development' -> 'lake evolution'."
+      ],
+      "examples": [
+        "paleoclimate reconstruction",
+        "human activity impacts",
+        "ecological and environmental evolution",
+        "archaeology and human activities"
+      ],
+      "max_items": 5,
+      "term_style": "standard",
+      "max_words_per_term": 4,
+      "multiLabel": true,
+      "modeN": 2
+    },
+    {
+      "name": "contribution",
+      "type": "list[str]",
+      "description": "Type of contribution or value of the study.",
+      "guidelines": [
+        "Use broad contribution categories: scientific value, technical value, methodological value."
+      ],
+      "examples": [
+        "scientific value",
+        "technical value",
+        "methodological value"
+      ],
+      "max_items": 3,
+      "term_style": "standard",
+      "max_words_per_term": 4
+    }
+  ]
+}

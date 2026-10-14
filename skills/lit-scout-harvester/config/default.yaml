@@ -1,0 +1,213 @@
+# ============================================
+# LangHuan Lit-Scout-Harvester 默认配置
+# 版本: 1.0
+# 用途: 基础解析 + 翻译（无提取模块）
+# ============================================
+
+version: "1.0"
+
+# === 全局设置 ===
+global:
+  max_concurrency: 10          # 最大异步并发数（Semaphore）
+  batch_size: 50               # LLM API批量请求大小（条/批）
+  cache_db: "data/cache/content_cache.db"  # 内容哈希缓存路径
+  output_dir: "./output"       # 输出目录
+  generate_citation: true      # 是否生成CITATION.md
+  log_level: "INFO"            # 日志级别: DEBUG | INFO | WARNING | ERROR
+  progress_report_interval: 100  # 每处理N条报告一次进度
+
+# === LLM设置 ===
+llm:
+  provider: "deepseek"         # 支持: deepseek | openai | kimi | qwen | minimax | gemini | claude
+  model: "deepseek-chat"       # 模型名称
+  api_key: "${DEEPSEEK_API_KEY}"  # 从环境变量/.env读取，禁止硬编码
+  base_url: "${DEEPSEEK_BASE_URL:https://api.deepseek.com/v1}"
+  temperature: 0.0             # 提取任务必须确定性输出（0~2）
+  max_retries: 3               # API失败重试次数
+  retry_delay: 2.0             # 重试间隔（秒）
+  request_timeout: 120         # 单次请求超时（秒）
+  max_tokens_per_request: 4096 # 最大输出token数
+  max_connections: 20           # aiohttp并发连接上限（占位，后续实现连接池）
+  max_threads: 4                # CPU密集型任务线程数（占位）
+  connection_keepalive: true    # 是否保持TCP连接（占位）
+  fallback_providers: []        # 主模型失败时按顺序切换的模型profile名称
+
+  # 命名模型profile：可在modules中通过 model_profile 引用
+  # models:
+  #   extraction:
+  #     provider: "deepseek"
+  #     model: "deepseek-chat"
+  #     api_key: "${DEEPSEEK_API_KEY}"
+  #     base_url: "${DEEPSEEK_BASE_URL:https://api.deepseek.com/v1}"
+  #     request_timeout: 120
+  #   translation:
+  #     provider: "kimi"
+  #     model: "moonshot-v1-8k"
+  #     api_key: "${KIMI_API_KEY}"
+  #     base_url: "${KIMI_BASE_URL:https://api.moonshot.cn/v1}"
+  #     request_timeout: 120
+
+# === 固定骨架（始终执行） ===
+skeleton:
+  base_data_source: "native_parser"  # native_parser | bibliometrix
+  datasource: "wos"                 # wos | cnki | scopus | pubmed | auto_detect
+  output_language: null             # zh | en | bilingual | raw | null=auto
+
+  bibliometrix:
+    rscript_path: "Rscript"
+    auto_install_bibliometrix: false
+    # output_fields: null  # null=保留全部，或指定字段列表
+
+  cnki:
+    confirm_language: true           # CLI 交互确认输出语言
+    default_language: "zh"           # 非交互环境默认语言
+    export_format: "auto"            # auto | refworks | endnote | custom
+
+  language_model_path: data/cache/lid.176.ftz
+  wos_fields:                  # 需要解析的WOS字段列表
+    - "PT"                    # Publication Type
+    - "AU"                    # Authors
+    - "AF"                    # Author Full Name
+    - "TI"                    # Title
+    - "AB"                    # Abstract
+    - "SO"                    # Source
+    - "DT"                    # Document Type
+    - "DE"                    # Author Keywords
+    - "ID"                    # Keywords Plus
+    - "C1"                    # Author Addresses
+    - "RP"                    # Reprint Address
+    - "PY"                    # Publication Year
+    - "DI"                    # DOI
+    - "LA"                    # Language
+    - "SC"                    # Research Areas
+    - "UT"                    # Accession Number
+    - "WC"                    # Web of Science Categories
+    - "EM"                    # E-mail Address
+    - "FX"                    # Funding
+    - "CR"                    # Cited References
+    - "NR"                    # Cited Reference Count
+    - "TC"                    # Times Cited
+    - "Z9"                    # Total Times Cited
+
+  language_detection: true     # 是否检测语种
+  translate_to_chinese: true   # 是否将非中文翻译为中文
+  segment_abstract: true       # 是否对摘要进行语义切分
+  restore_author_address: true # 是否恢复作者-地址一对一关系
+
+  # 作者地址解析选项
+  address_parser:
+    extract_country: true
+    extract_city: true
+    extract_institution: true
+    extract_postal_code: true
+    use_inst_city_map: true    # 查机构-城市映射表
+    fallback_to_llm: false     # 城市缺失时是否用LLM猜测（开发阶段关闭）
+
+# === 可选模块（按需启用） ===
+modules:
+  # 模块1：作者国家GDP加权
+  gdp_weighter:
+    enabled: false
+    gdp_cache_db: "data/gdp_cache.db"
+    constant_year_base: 2015   # 不变价GDP基准年
+    # 置信度规则：同年双全=1.0, 仅现价=0.8, 近邻填充=0.6, 缺失=0.0
+
+  # 模块2：研究地地理编码
+  geocoder:
+    enabled: false
+    microservice_url: "http://localhost:8000"
+    use_llm_fallback: true       # 微服务低置信度时是否调用LLM
+    include_coordinates: true    # 是否输出经纬度
+    verb_filter_list:            # 比较地过滤动词（这些动词后的地名不是采样地）
+      - "compared with"
+      - "similar to"
+      - "in contrast to"
+      - "unlike"
+
+  # 模块3：合作网络城市节点
+  network_builder:
+    enabled: false
+    output_format: "edgelist"   # edgelist | adjacency | gml
+    include_weights: true        # 边权重=合作次数
+
+  # 模块4：通用领域术语抽取（schema驱动）
+  term_extractor:
+    enabled: false
+    schema_path: "lit_scout_harvester/schemas/generic.json"
+    prescreen_classifier: null  # 预筛选分类器名称（null=不筛选，全部执行）
+    max_terms_per_field: 10      # 每字段最大术语数
+
+  # 模块5：科学教育专用术语抽取（覆盖通用模块）
+  sci_edu_extractor:
+    enabled: false
+    schema_path: "lit_scout_harvester/schemas/sci_edu.json"
+    prescreen_classifier: "is_sci_edu"  # 先分类，只处理目标领域子集
+    # model_profile: "extraction"  # 指定使用 llm.models 中的命名profile
+
+  # 模块6：古气候专用术语抽取（覆盖通用模块）
+  paleoclimate_extractor:
+    enabled: false
+    schema_path: "lit_scout_harvester/schemas/paleoclimate.json"
+    prescreen_classifier: "is_geoscience"
+
+  # 模块7：预筛选分类器（当prescreen_classifier不为null时自动启用）
+  prescreen:
+    enabled: false              # true | false；场景配置中可设为 true 以启用预筛选
+    classifier_model: "deepseek-chat"  # 可独立指定分类模型
+    batch_size: 100              # 分类批量大小（通常大于抽取批量）
+    threshold: 0.5               # 分类阈值（≥此值视为目标领域）
+
+  # 模块8：确定性词典标注（3B 确定性优先；放在 LLM/decision 模块之前，
+  # 配合 caliber.json strategy.fields 的 order 组成有序策略：词典未命中的
+  # 记录才进下游，已覆盖字段不再问 LLM）
+  lexicon_tagger:
+    enabled: false
+    # fields:
+    #   sampleType:
+    #     terms:
+    #       "lake sediments": ["lake sediment", "lacustrine"]
+    #     # path: "config/lexicons/sampleType.json"   # JSON：{标签: [命中词]}
+    #     # source_fields: ["TI", "AB", "DE"]          # 默认 TI/AB/DE/ID
+
+# === 后处理 ===
+postprocess:
+  min_confidence: 0.3            # 低于此值标记为 needs_review
+  deduplicate_terms: true        # 术语去重（同义词合并）
+  filter_generic_terms: true     # 基于词表剔除上位词（如"method"→剔除，保留具体方法名）
+  generic_term_threshold: 0.5    # 泛化词过滤阈值
+
+# === 人工校正回路 ===
+review:
+  enabled: true
+  queue_db: "data/review_queue.db"
+  auto_flag_low_confidence: true
+  auto_flag_gdp_discrepancy: 0.3   # GDP差异>30%标记复核
+  auto_flag_parser_errors: true      # 解析异常自动标记
+  max_queue_size: 10000            # 队列最大长度（防止无限增长）
+
+# === Loop Engineering 半自动迭代回路 ===
+loop_engineering:
+  enabled: false                   # 是否启用反馈-规划-执行闭环
+  auto_collect_feedback: true      # 运行后自动收集反馈
+  auto_plan: true                  # 自动从 confirmed issues 生成更新计划
+  auto_approve: false              # 初期强制人工审批计划
+  auto_execute: false              # 初期仅自动执行 schema_tuning，其余 stub
+  auto_evaluate: true              # 执行后自动评估效果
+  feedback_retention_days: 90      # 反馈文件保留天数
+  max_pending_plans: 10            # 同时存在的 pending 计划上限
+  men_issues_path: "data/Men_issues.md"      # 组织记忆问题账本
+  feedback_dir: "feedback"                   # 运行时反馈目录
+  update_plan_dir: "update_plan"             # 运行时计划目录
+
+# === 输出格式 ===
+output:
+  format: "csv"                    # csv | json | xlsx
+  csv_encoding: "utf-8-sig"        # 带BOM的UTF-8（Excel兼容）
+  csv_separator: ","
+  include_raw_fields: false        # 是否包含原始字段（仅输出提取结果）
+  include_confidence: true         # 是否为每个字段输出置信度列
+  include_flags: true              # 是否输出 flags 列
+  legacy_mode: false               # true=保留v0.1.0原始输出格式（兼容旧下游）
+  list_separator: "; "             # 列表字段在CSV中的分隔符
+  flatten_author_addresses: true   # 是否将author_addresses展开为独立列
+  dict_serialization: "json"      # dict字段序列化：json | flatten | omit

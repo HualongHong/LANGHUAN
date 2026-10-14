@@ -1,0 +1,4 @@
+# Peer-Collab-Strategizer 运行依赖
+# aiohttp: Phase 4 合成路径（scripts/synthesize_collab.py 经 agentkit.llm 调 DeepSeek）需要；
+# test_orcid / lint_report / export_verification_tasks / import_verdicts 均为标准库实现，零第三方依赖。
+aiohttp>=3.9

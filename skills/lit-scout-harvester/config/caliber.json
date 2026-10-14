@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "id_fields": ["UT", "DI", "TI"],
+  "record_id_field": "record_id",
+  "dedup": {
+    "distinct_key": "record_id",
+    "strategy": "raise",
+    "keep": "first"
+  },
+  "counting": {
+    "default_mode": "fractional",
+    "modes": ["fractional", "whole_count", "first_author"]
+  },
+  "multilabel": {
+    "default_n_star": 1,
+    "max_n_star": 10
+  },
+  "acceptance": {
+    "net_gain_threshold_pt": 15.0,
+    "weak_net_gain_threshold_pt": 5.0,
+    "majority_share_threshold_pct": 60.0,
+    "sample_rate": 0.05
+  },
+  "audit": {
+    "audit_rate": 0.05,
+    "default_seed": 20261001,
+    "hard_fields": [],
+    "residual_share_min": 0.30,
+    "residual_cooc_min": 0.3,
+    "residual_cooc_max": 0.6
+  },
+  "strategy": {
+    "fields": {}
+  },
+  "review": {
+    "batch_enqueue": true
+  }
+}

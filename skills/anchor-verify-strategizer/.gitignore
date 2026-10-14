@@ -1,0 +1,27 @@
+# ===== 机密文件（严禁入库）=====
+.env
+.env.*
+!.env.example
+!.env.sample
+*.key
+*.pem
+secrets/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ===== 运行时产出 =====
+*.log
+output/
+reports/
+dist/
+
+# ===== 编辑器/系统 =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,42 @@
+# ============================================
+# CNKI 中文文献配置示例
+# 用途: 从 CNKI Refworks/自定义格式导出中抽取结构化信息
+# ============================================
+
+extends: "default.yaml"
+
+version: "1.0-cnki"
+
+skeleton:
+  datasource: "cnki"
+  output_language: null          # null=交互确认（CLI）或使用 cnki.default_language
+  translate_to_chinese: false    # CNKI 文献本身为中文，通常无需再翻译为中文
+  segment_abstract: false        # 中文摘要切分稳定性较差，建议关闭
+  restore_author_address: false  # CNKI 无 WOS 式 C1 字段，关闭以避免低置信度
+  language_detection: true       # 用于判断是否需要翻译
+
+modules:
+  term_extractor:
+    enabled: true
+    schema_path: "lit_scout_harvester/schemas/sample_rst.json"
+    prompt_version: "cot_fewshot_guided"
+
+  # 关闭其他模块
+  gdp_weighter:
+    enabled: false
+  geocoder:
+    enabled: false
+  network_builder:
+    enabled: false
+  sci_edu_extractor:
+    enabled: false
+  paleoclimate_extractor:
+    enabled: false
+  prescreen:
+    enabled: false
+
+output:
+  format: "csv"
+  include_raw_fields: true       # 保留 CNKI 特有字段如 raw_fund, raw_clc_class
+  include_confidence: true
+  include_flags: true

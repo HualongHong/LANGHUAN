@@ -1,0 +1,24 @@
+# 密钥与本地配置
+.env
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# 黄金测试集原始扫描件与标注（体积大且涉版权，另行管理）
+data/golden_set/**
+!data/golden_set/README.md
+
+# 开发样例（涉版权扫描件，不入库）
+data/samples/
+
+# 运行产物
+output/
+logs/
+*.sqlite

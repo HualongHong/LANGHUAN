@@ -1,0 +1,22 @@
+# Test config for CNKI AI-in-education papers
+extends: "sci_edu.yaml"
+
+skeleton:
+  datasource: "cnki"
+  output_language: "zh"
+  translate_to_chinese: false
+  segment_abstract: false
+  restore_author_address: false
+  language_detection: true
+
+  cnki:
+    confirm_language: false
+    default_language: "zh"
+
+modules:
+  sci_edu_extractor:
+    enabled: true
+    prescreen_classifier: null  # disable prescreen for this test
+
+output:
+  include_raw_fields: true

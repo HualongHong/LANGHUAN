@@ -1,0 +1,7 @@
+# Non-interactive test config for CNKI smoke test
+extends: "cnki.yaml"
+
+skeleton:
+  output_language: "zh"
+  cnki:
+    confirm_language: false

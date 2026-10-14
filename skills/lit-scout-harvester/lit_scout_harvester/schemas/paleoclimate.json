@@ -1,0 +1,97 @@
+{
+  "name": "paleoclimate",
+  "description": "Paleoclimate research term and sample information extraction schema",
+  "version": "1.0",
+  "fields": [
+    {
+      "name": "study_region",
+      "type": "list[str]",
+      "description": "Geographic region(s) where the study was conducted (e.g., North Atlantic, Tibetan Plateau, East African Rift).",
+      "examples": ["Greenland Ice Sheet", "Arabian Sea"],
+      "max_items": 5
+    },
+    {
+      "name": "sample_type",
+      "type": "list[str]",
+      "description": "Type(s) of paleoclimate archive or sample material (e.g., stalagmite, sediment core, ice core, tree ring, coral).",
+      "examples": ["stalagmite", "marine sediment core"],
+      "max_items": 5
+    },
+    {
+      "name": "paleoclimate_proxy",
+      "type": "list[str]",
+      "description": "Proxy measurement(s) used to reconstruct past climate (e.g., oxygen isotopes, pollen, Mg/Ca, grain size).",
+      "examples": ["delta18O", "pollen assemblage"],
+      "max_items": 5
+    },
+    {
+      "name": "climate_variable",
+      "type": "list[str]",
+      "description": "Climate variable(s) reconstructed or analyzed (e.g., temperature, precipitation, monsoon intensity, sea level).",
+      "examples": ["Holocene temperature", "Indian Summer Monsoon"],
+      "max_items": 5
+    },
+    {
+      "name": "time_period",
+      "type": "list[str]",
+      "description": "Geological time period(s) or age range(s) covered (e.g., Holocene, Last Glacial Maximum, Medieval Climate Anomaly).",
+      "examples": ["Holocene", "last 2000 years"],
+      "max_items": 3
+    },
+    {
+      "name": "chronology_method",
+      "type": "list[str]",
+      "description": "Dating or chronology method(s) used (e.g., U-Th dating, radiocarbon, layer counting).",
+      "examples": ["U-series dating", "AMS 14C dating"],
+      "max_items": 3
+    },
+    {
+      "name": "reconstruction_method",
+      "type": "list[str]",
+      "description": "Statistical or modeling method(s) used for reconstruction (e.g., transfer function, Bayesian model, PCA).",
+      "examples": ["transfer function", "inverse modeling"],
+      "max_items": 3
+    },
+    {
+      "name": "climate_forcing",
+      "type": "list[str]",
+      "description": "External forcing factor(s) discussed (e.g., orbital forcing, solar variability, volcanic activity, greenhouse gases).",
+      "examples": ["orbital forcing", "ENSO"],
+      "max_items": 5
+    },
+    {
+      "name": "uncertainty_assessment",
+      "type": "list[str]",
+      "description": "Approaches used to quantify uncertainty (e.g., bootstrap, Monte Carlo, sensitivity test).",
+      "examples": ["Monte Carlo simulation"],
+      "max_items": 3
+    },
+    {
+      "name": "data_availability",
+      "type": "list[str]",
+      "description": "Data availability statement or repository mentioned (e.g., NOAA WDS, PANGAEA, supplementary data).",
+      "examples": ["NOAA National Centers for Environmental Information"],
+      "max_items": 3
+    },
+    {
+      "name": "geographic_coordinates",
+      "type": "list[str]",
+      "description": "Latitude and longitude of sampling site(s) if explicitly stated.",
+      "examples": ["24.5°N, 108.2°E"],
+      "max_items": 5
+    },
+    {
+      "name": "marine_terrestrial",
+      "type": "str",
+      "description": "Whether the study focuses on marine, terrestrial, or cryospheric environments.",
+      "examples": ["terrestrial"]
+    },
+    {
+      "name": "keywords",
+      "type": "list[str]",
+      "description": "Additional domain-specific keywords not covered above.",
+      "examples": ["abrupt climate change", "climate sensitivity"],
+      "max_items": 8
+    }
+  ]
+}

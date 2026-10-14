@@ -1,0 +1,60 @@
+# LangHuan 套件清单（草案 v0.1 —— 2026-10-01）
+# 迁移完成后作为 build_plugin.py 的唯一事实来源；成员状态字段驱动构建门禁。
+suite:
+  name: langhuan
+  version: "0.1.0-dev"
+  python: ">=3.14"          # 统一运行时基线（2026-10-01 拍板，对齐 Archive-Plate-Assembler 现网）
+  license: MIT
+  author: LangHuan Suite
+
+shared_libs:
+  - name: agentkit
+    path: libs/agentkit
+    distribute: vendor      # 构建时 vendor 进各 skill zip，运行时自包含
+
+members:
+  - name: lit-scout-harvester
+    path: skills/lit-scout-harvester   # 迁移目标位置（当前在仓库根 Lit-Scout-Harvester/）
+    version: "0.3.0"
+    status: released
+    kind: python-package               # 主包 + wheel 打包
+    entry: scripts/agent_run.py
+    skill_manifest: SKILL.md
+    test_baseline: "tests/unit 137/137"
+
+  - name: archive-plate-assembler
+    path: skills/archive-plate-assembler   # 当前在仓库根 Archive-Plate-Assembler/
+    version: "0.1.0-dev"
+    status: in-development               # M4a 完成，M4b/M5 未做
+    kind: python-package
+    entry: "python -m archive_plate_assembler"
+    skill_manifest: SKILL.md             # 待补
+    test_baseline: "tests/ 140 passed"
+
+  - name: anchor-verify-strategizer
+    path: skills/anchor-verify-strategizer   # 当前在仓库根 Anchor-Verify-Strategizer/
+    version: "1.1.1"
+    status: released
+    kind: content-skill                  # 纯 Markdown/JSON 资源目录 + scripts 工具集
+    skill_manifest: anchor-verify-strategizer/SKILL.md
+    test_baseline: "lint_report 0 ERROR / 0 WARN"
+
+  - name: peer-collab-strategizer
+    path: skills/peer-collab-strategizer
+    version: "0.1.0"
+    status: in-development                 # M2/M3 完成，M4 试跑进行中
+    kind: content-skill                  # 复用 agentkit + AVS 方法论骨架
+    skill_manifest: SKILL.md
+    test_baseline: "lint_report 0 ERROR / 0 WARN（试跑报告）"
+
+build:
+  output_dir: dist
+  per_skill_zip: true
+  include_in_zip:
+    - SKILL.md
+    - README.md
+    - src-or-package
+    - vendored agentkit
+    - requirements*.txt
+    - .env.example
+    - MANIFEST.json

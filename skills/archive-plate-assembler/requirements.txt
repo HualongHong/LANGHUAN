@@ -1,0 +1,24 @@
+# Archive-Plate-Assembler 依赖（M1~M3 范围）
+# M4/M5 依赖（gradio、fastapi、uvicorn）届时再加，见开发规划书 §7。
+
+# 节点 1：PDF 渲染
+PyMuPDF>=1.24
+
+# 节点 5：图像处理
+Pillow>=10.0
+opencv-python>=4.8
+rembg>=2.0           # 白底手绘图/实验室照去背景；安装失败时以 OpenCV 兜底
+onnxruntime>=1.17    # rembg 的 CPU 推理后端（rembg[cpu] 等价）
+
+# Schema 与数据校验
+pydantic>=2.0
+
+# HTTP 客户端（模型网关）
+httpx>=0.27
+python-dotenv>=1.0
+
+# 人工校验界面（M4a）
+streamlit>=1.59        # 校验界面；M4b 需再加 streamlit-drawable-canvas
+
+# 测试与评价
+pytest>=8.0

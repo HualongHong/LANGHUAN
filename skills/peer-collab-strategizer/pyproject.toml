@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "peer-collab-strategizer"
+version = "0.1.0.dev0"
+description = "LangHuan Suite · 高校/科研团队非排他性学术合作可行性评估（SWOT × 合作模式报告，内容驱动 + 工具脚本）"
+readme = "SKILL.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    # Phase 4 合成路径经 agentkit.llm 调 DeepSeek 需要 aiohttp；
+    # lint / test_orcid / export / import 脚本零第三方依赖（标准库）。
+    "aiohttp>=3.9",
+]

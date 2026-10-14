@@ -1,0 +1,44 @@
+# ---- 密钥（严禁入库）----
+.env
+*.env
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+build/
+
+# ---- 套件产物 ----
+dist/
+output/
+.skill_staging/
+
+# ---- 数据（体积/版权敏感，按需保留样例说明）----
+*.pdf
+data/samples/
+
+# ---- 各技能运行时队列/缓存 ----
+.lit_scout/
+.lit_scout_llm/
+*.db
+*.db-wal
+*.db-shm
+
+# ---- 开发记录（本地维护，不入库）----
+AGENTS.md
+docs/
+feedback/
+skills/*/AGENTS.md
+skills/*/docs/
+
+# ---- 编辑器/系统 ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,42 @@
+# ============================================
+# sample_rst 配置
+# 用途: 基于 tests/fixtures/sample_rst.csv 标注的 6 字段提取
+# ============================================
+
+extends: "default.yaml"
+
+version: "1.0-sample_rst"
+
+global:
+  batch_size: 10
+
+skeleton:
+  translate_to_chinese: false
+  segment_abstract: false
+  language_detection: false
+
+modules:
+  term_extractor:
+    enabled: true
+    schema_path: "lit_scout_harvester/schemas/sample_rst.json"
+    prompt_version: "cot_fewshot_guided"
+
+  # 关闭其他模块
+  gdp_weighter:
+    enabled: false
+  geocoder:
+    enabled: false
+  network_builder:
+    enabled: false
+  sci_edu_extractor:
+    enabled: false
+  paleoclimate_extractor:
+    enabled: false
+  prescreen:
+    enabled: false
+
+output:
+  format: "csv"
+  include_raw_fields: false
+  include_confidence: true
+  include_flags: true

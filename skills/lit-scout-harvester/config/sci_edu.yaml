@@ -1,0 +1,34 @@
+# ============================================
+# 科学教育领域配置
+# 用途: 场景B - 领域筛选 + 8维度术语提取
+# ============================================
+
+extends: "default.yaml"
+
+version: "1.0-sci_edu"
+
+modules:
+  # 启用科学教育术语抽取
+  sci_edu_extractor:
+    enabled: true
+    schema_path: "lit_scout_harvester/schemas/sci_edu.json"
+    prescreen_classifier: "is_sci_edu"
+
+  # 启用预筛选分类器
+  prescreen:
+    enabled: true
+
+  # 关闭其他模块
+  gdp_weighter:
+    enabled: false
+  geocoder:
+    enabled: false
+  network_builder:
+    enabled: false
+  term_extractor:
+    enabled: false
+  paleoclimate_extractor:
+    enabled: false
+
+postprocess:
+  min_confidence: 0.4              # 教育领域术语要求更高置信度

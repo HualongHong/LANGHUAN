@@ -1,0 +1,61 @@
+{
+  "name": "sci_edu",
+  "description": "Science education research term extraction schema",
+  "version": "1.0",
+  "fields": [
+    {
+      "name": "research_topic",
+      "type": "list[str]",
+      "description": "Main research topics or themes addressed in the study (e.g., conceptual change, scientific reasoning, inquiry-based learning).",
+      "examples": ["conceptual change", "scientific argumentation"],
+      "max_items": 5
+    },
+    {
+      "name": "scientific_concepts",
+      "type": "list[str]",
+      "description": "Specific scientific concepts or disciplinary ideas investigated (e.g., evolution, photosynthesis, Newton's laws).",
+      "examples": ["natural selection", "energy transfer"],
+      "max_items": 5
+    },
+    {
+      "name": "inquiry_abilities",
+      "type": "list[str]",
+      "description": "Scientific inquiry abilities or practices emphasized (e.g., hypothesizing, data analysis, modeling).",
+      "examples": ["experimental design", "evidence evaluation"],
+      "max_items": 5
+    },
+    {
+      "name": "instructional_strategies",
+      "type": "list[str]",
+      "description": "Teaching strategies, interventions, or instructional approaches used (e.g., flipped classroom, scaffolding, collaborative learning).",
+      "examples": ["inquiry-based instruction", "formative assessment"],
+      "max_items": 5
+    },
+    {
+      "name": "participant_group",
+      "type": "str",
+      "description": "Primary participant group (e.g., elementary students, pre-service teachers, in-service teachers).",
+      "examples": ["middle school students"]
+    },
+    {
+      "name": "educational_level",
+      "type": "str",
+      "description": "Educational level of participants (e.g., K-12, undergraduate, graduate).",
+      "examples": ["K-12"]
+    },
+    {
+      "name": "assessment_type",
+      "type": "list[str]",
+      "description": "Types of assessments or outcome measures used (e.g., conceptual test, questionnaire, interview).",
+      "examples": ["pre/post-test", "interview"],
+      "max_items": 3
+    },
+    {
+      "name": "keywords",
+      "type": "list[str]",
+      "description": "Additional domain-specific keywords not covered above.",
+      "examples": ["STEM education", "nature of science"],
+      "max_items": 8
+    }
+  ]
+}

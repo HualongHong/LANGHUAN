@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://avs.local/schemas/verification-task.schema.json",
+  "title": "AVS 外部 Agent 核验任务包",
+  "description": "AVS 侧导出的核验任务包（scripts/export_verification_tasks.py 产出），字段定义见 interface/agent-verification-api.md §2。",
+  "type": "object",
+  "required": ["metadata", "tasks"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["source_report", "exported_at", "filter", "total_tasks"],
+      "additionalProperties": false,
+      "properties": {
+        "source_report": {
+          "type": "string",
+          "description": "来源报告文件名"
+        },
+        "exported_at": {
+          "type": "string",
+          "description": "导出时间，ISO 8601"
+        },
+        "filter": {
+          "type": "string",
+          "enum": ["confirmed-facts", "all"],
+          "description": "导出过滤模式：仅已确认事实 / 全部含 URL 条目"
+        },
+        "total_tasks": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "任务总数"
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "entry_id",
+          "source_report",
+          "claim",
+          "source_url",
+          "excerpt",
+          "current_confidence",
+          "focus_hint"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^AVT-\\d{2,}$",
+            "description": "核验任务编号，AVT-01 起连续"
+          },
+          "entry_id": {
+            "type": "string",
+            "pattern": "^(?:E|I|L|SWOT)-",
+            "description": "原条目编号（如 E-碳管理-01）"
+          },
+          "source_report": {
+            "type": "string",
+            "description": "来源报告文件名"
+          },
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "description": "条目事实表述（条目首行方括号内的完整陈述）"
+          },
+          "source_url": {
+            "type": "string",
+            "pattern": "^https?://",
+            "description": "验证路径中的第一个 http(s) URL"
+          },
+          "excerpt": {
+            "type": ["string", "null"],
+            "description": "原文摘录；报告未附摘录时为 null"
+          },
+          "current_confidence": {
+            "type": "string",
+            "description": "条目当前置信度（如 \"90%\"）"
+          },
+          "focus_hint": {
+            "type": "string",
+            "minLength": 1,
+            "description": "核验重点建议，仅供参考"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langhuan-agentkit"
+version = "0.1.0.dev0"
+description = "LangHuan suite shared scaffolding: host-agent job queue (bridge), non-interactive agent entry skeleton (agent_entry), unified LLM layer (llm), content-hash cache (cache), explicit env/YAML config loading (config), CITATION.md provenance (citation), online-source quota governance (quota), a generic HTTP fetch layer (fetch) and an optional host-broker credential seam with fail-open .env fallback (credentials)."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "LangHuan Suite" }]
+# agentkit 核心（bridge/agent_entry/cache/config/citation 及 llm 的注册表/
+# 客户端/清洗）仅依赖标准库，保证 vendor 进技能 zip 后自包含；HTTP provider
+# 在请求时才延迟导入 aiohttp，config.load_yaml 在调用时才延迟导入 pyyaml。
+dependencies = []
+
+[project.optional-dependencies]
+# HTTP LLM providers（deepseek/openai/kimi/qwen/minimax/gemini/claude）。
+llm = ["aiohttp>=3.9"]
+
+[tool.setuptools]
+# 本 pyproject 位于包目录内（libs/agentkit/），包根是其上一级 libs/。
+package-dir = { "" = ".." }
+packages = [
+    "agentkit",
+    "agentkit.bridge",
+    "agentkit.agent_entry",
+    "agentkit.cache",
+    "agentkit.config",
+    "agentkit.citation",
+    "agentkit.llm",
+    "agentkit.llm.providers",
+    "agentkit.packaging",
+    "agentkit.quota",
+    "agentkit.fetch",
+]

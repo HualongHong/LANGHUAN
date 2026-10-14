@@ -1,0 +1,38 @@
+# ============================================
+# 经济/政策分析配置
+# 用途: 场景A - GDP加权 + 合作网络 + 地理编码
+# ============================================
+
+extends: "default.yaml"
+
+version: "1.0-policy"
+
+modules:
+  # 启用GDP加权
+  gdp_weighter:
+    enabled: true
+    gdp_cache_db: "data/gdp_cache.db"
+    constant_year_base: 2015
+
+  # 启用地理编码
+  geocoder:
+    enabled: true
+    microservice_url: "http://localhost:8000"
+    include_coordinates: true
+
+  # 启用合作网络
+  network_builder:
+    enabled: true
+    output_format: "edgelist"
+    include_weights: true
+
+  # 关闭术语抽取
+  term_extractor:
+    enabled: false
+  sci_edu_extractor:
+    enabled: false
+  paleoclimate_extractor:
+    enabled: false
+
+postprocess:
+  min_confidence: 0.5              # 经济分析要求较高置信度

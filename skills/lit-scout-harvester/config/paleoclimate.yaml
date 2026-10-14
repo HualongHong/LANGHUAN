@@ -1,0 +1,52 @@
+# ============================================
+# 古气候/地球科学领域配置
+# 用途: 场景C - 16字段专业信息抽取 + 地理编码
+# ============================================
+
+extends: "default.yaml"
+
+version: "1.0-paleoclimate"
+
+global:
+  batch_size: 30                   # 专业术语提取更复杂，减小批量
+
+modules:
+  # 启用古气候术语抽取
+  paleoclimate_extractor:
+    enabled: true
+    schema_path: "lit_scout_harvester/schemas/paleoclimate.json"
+    prescreen_classifier: "is_geoscience"
+
+  # 启用地理编码（采样地点坐标）
+  geocoder:
+    enabled: true
+    microservice_url: "http://localhost:8000"
+    use_llm_fallback: true
+    include_coordinates: true
+    verb_filter_list:
+      - "compared with"
+      - "similar to"
+      - "in contrast to"
+      - "unlike"
+      - "as opposed to"
+      - "whereas"
+      - "while"                   # 古气候文献常见比较词
+
+  # 启用预筛选分类器
+  prescreen:
+    enabled: true
+
+  # 关闭其他模块
+  gdp_weighter:
+    enabled: false
+  network_builder:
+    enabled: false
+  term_extractor:
+    enabled: false
+  sci_edu_extractor:
+    enabled: false
+
+postprocess:
+  min_confidence: 0.35             # 专业术语允许略低置信度（人工复核）
+  filter_generic_terms: true
+  generic_term_threshold: 0.6

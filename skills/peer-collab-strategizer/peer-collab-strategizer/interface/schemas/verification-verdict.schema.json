@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pcs.local/schemas/verification-verdict.schema.json",
+  "title": "PCS 外部 Agent 核验裁决文件",
+  "description": "外部 Agent 回传的核验裁决（verdicts.json），字段定义与回导语义见 interface/agent-verification-api.md §3/§4。",
+  "type": "object",
+  "required": ["verdicts"],
+  "additionalProperties": false,
+  "properties": {
+    "verdicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task_id", "verdict", "evidence", "checked_at", "verifier"],
+        "additionalProperties": false,
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^AVT-\\d{2,}$",
+            "description": "对应的核验任务编号"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": ["confirmed", "refuted", "partial", "undetermined"],
+            "description": "confirmed 证实 / refuted 证伪 / partial 部分证实 / undetermined 无法判定"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "description": "证据描述 + 核查后 URL；裁决必须有 evidence 才有效"
+          },
+          "checked_at": {
+            "type": "string",
+            "description": "核查时间，ISO 8601（如 2026-10-02T12:00:00+08:00）"
+          },
+          "verifier": {
+            "type": "string",
+            "minLength": 1,
+            "description": "核验方标识与模型名，如 \"TRAE-SOLO/doubao-pro\""
+          },
+          "confidence_suggestion": {
+            "type": "string",
+            "description": "可选，置信度调整建议，仅供人工参考"
+          },
+          "entry_id": {
+            "type": "string",
+            "pattern": "^(?:S|P|L|SWOT)-",
+            "description": "可选，原条目编号；提供时用于与任务包映射交叉校验"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# ============================================
+# 古气候场景 + sample_rst schema 配置
+# 用途: 使用基于标注数据调优后的 6 字段 schema 进行古气候文献抽取，
+#       并保留地理编码与预筛选能力。
+# ============================================
+
+extends: "paleoclimate.yaml"
+
+version: "1.0-paleoclimate-sample_rst"
+
+modules:
+  # 使用 sample_rst schema 替代原生 paleoclimate schema
+  paleoclimate_extractor:
+    enabled: false
+
+  term_extractor:
+    enabled: true
+    schema_path: "lit_scout_harvester/schemas/sample_rst.json"
+    prompt_version: "targeted"
+
+  # 保留地理编码与预筛选
+  geocoder:
+    enabled: true
+  prescreen:
+    enabled: true
