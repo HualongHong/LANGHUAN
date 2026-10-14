@@ -616,7 +616,51 @@ row["sciQuestion"]["probabilities"]     # 全选项概率分布（可审计）
 
 ---
 
-## 16. 由宿主 Agent 模型驱动（零 API 成本）
+## 16. 模型运营商设置页
+
+两段式标注架构（见上一节）需要分别指定「标注模型」（阶段 A/B 生成式）与
+「选项决策模型」（阶段 B 选择，要求 logprobs 概率输出）的运营商。
+`scripts/settings_app.py` 是一个 Streamlit 设置页，集中维护运营商入口、
+角色分配与 API key（key 只经环境变量名引用，永不写入仓库文件）。
+
+启动（cwd = 技能根目录，需装有 streamlit 的 venv；`-m streamlit` 等价于 `streamlit`）：
+
+```bash
+# 技能自带 venv（若已安装 streamlit）
+C:/Users/hongh/.agents/skills/langhuan-lit-scout-harvester/.venv/Scripts/python.exe \
+  -m streamlit run scripts/settings_app.py
+
+# 或套件内 APA 技能的 venv（Py3.14，已装 streamlit 1.59+）
+D:/opt/dev/LangHuan/skills/archive-plate-assembler/.venv/Scripts/python.exe \
+  -m streamlit run scripts/settings_app.py
+```
+
+页面三块：
+
+1. **运营商入口**：增删改 `config/providers.json` 中的条目。预置 7 个运营商
+   （DeepSeek / MiniMax / 阿里云百炼 / 腾讯混元 / JEV 原厂 / 上海超算云平台·LLM /
+   上海超算·类JEV决策模型）；reserved 条目（腾讯混元、JEV 原厂）标灰并注
+   「预留·不可访问」，只能禁用不可删除。上海超算两个入口为占位地址
+   （`https://llm.shsc.cn/v1`），实际接入后填真实 base_url 与模型名。
+2. **角色分配**：两个角色槽各选一个 **已启用** 入口。决策模型选中不支持
+   logprobs 的入口会红字警告并禁止保存。角色选中结果可一键写入既有
+   pipeline YAML 的 llm 段（标注 → 主段；决策 → `llm.models.decision`
+   命名 profile，模块侧用 `model_profile: "decision"` 引用），未选则不改动文件。
+3. **API key 管理**：每个运营商一个 password 框，「保存 key」以读-改-写方式
+   追加/更新到中央 env 文件，其它行保留；密码框留空表示不改动。
+
+`providers.json` 与中央 env 的关系：providers.json 只存 **环境变量名**
+（如 `DEEPSEEK_API_KEY`）与元数据，不存 key 本体；key 值集中放在中央 env 文件，
+自动探测顺序为 `~/.agents/skills/langhuan.env`（install_plugin.sh 的中央文件，
+存在即优先）→ 技能根 `.env` → 页面侧栏指定的兜底路径。页面上的 key 状态灯
+只查存在性，永不回显 key 值。不设 key 可改用宿主 Agent 驱动（见下一节）。
+
+数据底座是纯标准库模块 `lit_scout_harvester/core/provider_registry.py`
+（JSON 驱动，不依赖 pyyaml/streamlit），所有写操作均为可单测的纯函数。
+
+---
+
+## 17. 由宿主 Agent 模型驱动（零 API 成本）
 
 如果你是在一个 Agent（Kimi / Codex / TRAE 等）里使用本工具，可以**不接任何 LLM
 API key**：流水线把每个 LLM 请求写成工单，由当前 Agent 自己的模型读工单、写答案，
@@ -645,7 +689,7 @@ CITATION.md 会把 LLM 来源标注为宿主模型。实现见
 
 ---
 
-## 17. 在线数据源与额度治理
+## 18. 在线数据源与额度治理
 
 OpenAlex 在线抓取走 `parsers/openalex.py`（`skeleton.datasource: openalex`），纪律是
 **先算预算再动手、已知 DOI 一律走免费单条端点、search 检索端点 10 credits/次默认禁用**

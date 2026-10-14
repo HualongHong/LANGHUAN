@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "annotation_provider": "deepseek",
+  "decision_provider": "deepseek",
+  "providers": [
+    {
+      "id": "deepseek",
+      "operator": "DeepSeek",
+      "type": "openai_compatible",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "models": [
+        "deepseek-chat",
+        "deepseek-reasoner"
+      ],
+      "enabled": true,
+      "supports_logprobs": true,
+      "reserved": false,
+      "note": "标注 + 决策均可用（logprobs 已验证）"
+    },
+    {
+      "id": "minimax",
+      "operator": "MiniMax",
+      "type": "openai_compatible",
+      "base_url": "https://api.minimaxi.com/v1",
+      "api_key_env": "MINIMAX_API_KEY",
+      "models": [],
+      "enabled": false,
+      "supports_logprobs": false,
+      "reserved": false,
+      "note": "接入后填实际模型名"
+    },
+    {
+      "id": "qwen",
+      "operator": "阿里云百炼",
+      "type": "openai_compatible",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": "QWEN_API_KEY",
+      "models": [
+        "qwen-max",
+        "qwen-plus"
+      ],
+      "enabled": false,
+      "supports_logprobs": false,
+      "reserved": false,
+      "note": "阿里云百炼 OpenAI 兼容端点"
+    },
+    {
+      "id": "tencent",
+      "operator": "腾讯混元",
+      "type": "openai_compatible",
+      "base_url": "https://api.lkeap.cloud.tencent.com/v1",
+      "api_key_env": "TENCENT_API_KEY",
+      "models": [
+        "hunyuan-pro"
+      ],
+      "enabled": false,
+      "supports_logprobs": false,
+      "reserved": true,
+      "note": "当前不可访问，入口保留"
+    },
+    {
+      "id": "jev_original",
+      "operator": "JEV 原厂",
+      "type": "jev_legacy",
+      "base_url": "https://jev.invalid",
+      "api_key_env": "JEV_API_KEY",
+      "models": [],
+      "enabled": false,
+      "supports_logprobs": false,
+      "reserved": true,
+      "note": "原厂服务已不可访问，保留入口待恢复"
+    },
+    {
+      "id": "shanghai_sc_llm",
+      "operator": "上海超算云平台·LLM",
+      "type": "openai_compatible",
+      "base_url": "https://llm.shsc.cn/v1",
+      "api_key_env": "SHANGHAI_SC_API_KEY",
+      "models": [],
+      "enabled": false,
+      "supports_logprobs": false,
+      "reserved": false,
+      "note": "基座大模型，接入后填实际地址与模型名"
+    },
+    {
+      "id": "shanghai_sc_jev",
+      "operator": "上海超算·类JEV决策模型",
+      "type": "openai_compatible_decision",
+      "base_url": "https://llm.shsc.cn/v1",
+      "api_key_env": "SHANGHAI_SC_API_KEY",
+      "models": [],
+      "enabled": false,
+      "supports_logprobs": true,
+      "reserved": false,
+      "note": "类 JEV 决策模型：选项内选择 + 概率输出"
+    }
+  ]
+}

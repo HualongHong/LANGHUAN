@@ -17,6 +17,7 @@ from agentkit.llm.providers import (
     GeminiProvider,
     KimiProvider,
     MiniMaxProvider,
+    OpenAICompatibleProvider,
     OpenAIProvider,
     QwenProvider,
 )
@@ -26,6 +27,8 @@ from lit_scout_harvester.core.llm_providers.agent_bridge import AgentBridgeProvi
 
 PROVIDER_REGISTRY: Dict[str, Type[LLMProvider]] = {
     **_AGENTKIT_REGISTRY,
+    # 通用 OpenAI 兼容构造器（provider_registry 为自定义/超算平台入口回退到此）。
+    "openai_compatible": OpenAICompatibleProvider,
     "agent_bridge": AgentBridgeProvider,
     "agent": AgentBridgeProvider,
 }
@@ -64,6 +67,7 @@ __all__ = [
     "PROVIDER_REGISTRY",
     "DeepSeekProvider",
     "OpenAIProvider",
+    "OpenAICompatibleProvider",
     "KimiProvider",
     "QwenProvider",
     "MiniMaxProvider",
