@@ -37,6 +37,10 @@ feedback/
 skills/*/AGENTS.md
 skills/*/docs/
 
+# ---- JS/TS（dsh-plugin）----
+node_modules/
+npm-debug.log*
+
 # ---- 编辑器/系统 ----
 .idea/
 .vscode/

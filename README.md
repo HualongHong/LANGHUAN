@@ -61,6 +61,10 @@ vim ~/.agents/skills/langhuan.env
 
 key 管理是**单入口**的：中央文件 `~/.agents/skills/langhuan.env` 经**硬链接**分发给各 `langhuan-*/.env`——改中央文件即实时改全部，无需同步操作；若硬链接失效（跨卷/文件被复制），跑一次 `bash scripts/install_plugin.sh sync-env` 重建。不填 key 也能运行：技能自动走 agent_bridge 零 key 模式（模型调用由宿主 Agent 完成）。
 
+### 方式二补充：DSH 插件形态
+
+除技能形态外，LangHuan 还以 **DSH（DeepSeek Harness）原生插件**形态接入宿主：[`dsh-plugin/`](dsh-plugin/README.zh.md)（`@langhuan/dsh-plugin`）把模型运营商注册表、标注/决策角色槽与密钥环境变量名纳入 DSH 的设置体系，由 DSH 插件配置统一驱动，并自动落盘为 lit-scout-harvester 的 `providers.json`。技能形态管「怎么干活」，DSH 插件形态管「用哪个模型入口、key 叫什么名字」；两者经 `providers.json` + 中央 `langhuan.env` 只读耦合，互不依赖。DSH Desktop 用户的接入步骤见 [`dsh-plugin/INSTALL.zh.md`](dsh-plugin/INSTALL.zh.md)。
+
 ### 方式二：从源码构建
 
 ```bash

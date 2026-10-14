@@ -1,0 +1,37 @@
+{
+  "name": "@langhuan/dsh-plugin",
+  "version": "0.1.0",
+  "description": "LangHuan Suite 的 DSH（DeepSeek Harness）原生插件：在 DSH 设置体系里统一配置 LangHuan 技能群的模型运营商、标注/决策角色与密钥环境变量名，并同步落盘为 lit-scout-harvester 的 providers.json。/ Native DSH plugin for the LangHuan suite: centralize model provider, annotation/decision role and API-key env-var configuration inside DeepSeek Harness, synced to providers.json for the LangHuan skills.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "README.zh.md",
+    "INSTALL.zh.md"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@deepseek-ai/schemastery": "^3.18.0"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "langhuan",
+    "cordis",
+    "schemastery",
+    "providers",
+    "llm"
+  ]
+}
