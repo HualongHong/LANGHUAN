@@ -171,3 +171,28 @@ export function assertValidConfig(config) {
     throw new Error('langhuan 配置校验失败:\n' + errors.map((e) => ` - ${e}`).join('\n'));
   }
 }
+
+/**
+ * 解开 0.2.x cordis 的 Volatile 包装（config.field 可能是 { get() } 引用），
+ * 得到纯 JSON 配置。0.1.x 普通值原样透传；已解开的对象幂等。
+ * @param {any} config
+ * @returns {any} 纯数据配置
+ */
+export function unwrapResolved(config) {
+  if (!config || typeof config !== 'object') return config;
+  const unwrapValue = (v) => (v && typeof v === 'object' && typeof v.get === 'function' ? v.get() : v);
+  const providers = {};
+  for (const [id, entry] of Object.entries(config.providers ?? {})) {
+    if (!entry || typeof entry !== 'object') continue;
+    const plain = {};
+    for (const [k, v] of Object.entries(entry)) plain[k] = unwrapValue(v);
+    providers[id] = plain;
+  }
+  return {
+    ...config,
+    providers,
+    annotationProvider: unwrapValue(config.annotationProvider),
+    decisionProvider: unwrapValue(config.decisionProvider),
+    skillsDir: unwrapValue(config.skillsDir),
+  };
+}

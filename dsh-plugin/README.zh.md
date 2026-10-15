@@ -42,7 +42,7 @@ Lit-Scout-Harvester 两段式标注（annotation → llm 主段；decision → l
 
 > 截图位：卡片 UI 验证截图待补（`docs/` 下留存后在此引用）。
 >
-> 前提：图形卡片需要服务端注册 settings 命名空间，注册依赖 schemastery schema——**canonical 安装形态**（tarball/npm，见安装一节）下可用；`pnpm link:` 开发安装形态下 providers.json 同步照常，卡片不渲染。卡片渲染还依赖组合里已含 `@deepseek-ai/dsh-client-ui-settings`（web/desktop 出厂组合均含）。
+> 前提：图形卡片走双版本探测（见「版本兼容」一节）——0.1.x 需 canonical 安装形态（服务端 installSection 注册依赖 schemastery schema）；0.2.x Host 自动服务含 volatile 字段的 Config，同样需 canonical 形态（link: 开发安装下 providers.json 同步照常、卡片不渲染）。花名册行 id 必须是 `langhuan`（0.2.x 命名空间 = entry id）。卡片渲染还依赖组合里已含 `@deepseek-ai/dsh-client-ui-settings`（web/desktop 出厂组合均含）。
 
 ## Config schema
 
@@ -222,10 +222,32 @@ dict 整体替换（默认值不按键合并）。错误与正确写法：
 
 见 [INSTALL.zh.md](./INSTALL.zh.md)（desktop profile 被 CLI 保留，必须走文件编辑，步骤单独成文）。
 
+## 版本兼容（0.1.x CLI / 0.2.x Desktop 双路径探测）
+
+**第一原则：任何设置服务都不得成为硬依赖——apply 同步完成、entry 绝不 pending。**
+Desktop 0.2.0 上 entry pending 会导致整个 web boot 失败（`web boot: 1 entry did not activate`）。
+
+| | 0.1.x（CLI 0.1.5-rc.3，已实机验证） | 0.2.x（Desktop 0.2.0+，asar 静态实证） |
+|---|---|---|
+| 设置服务形态 | `settings.installSection(owner, ns, schema, entry, hooks)` | `settings.configure/describe`；**Host 自动把含 `.volatile()` 字段的插件 Config 服务为设置命名空间**（ns = loader entry id），`dsh-config-editor` 直写 profile patch |
+| 服务端注册 | installSection（validate/setSource/onChange） | 无需注册；`loader/volatile-update` 事件驱动重同步 |
+| 客户端卡片 | `settingsScope.bind(ns)` + `settings.plugin.item`（keyed） | `configForms.get(entryId)` + `configForms.whileServed([entryId], …)` + `plugins.item`（组件收 `props.view`，`'summary'` 返回一行简介） |
+| 写入通道 | `settings.mutate(ops, rev?)`（静默落定，回读确认） | 同左，但 mutate **返回 boolean**（Host 是否接受） |
+| 用户 section 落点 | `$DSH_HOME/settings.yaml` | profile 的 `cordis.patch.yml`（comment-preserving 编辑） |
+
+实现方式（lib/index.js / lib/client.js 两侧一致）：
+
+- **运行期探测 + 异步重试**：`ctx.get('settings'|'configForms'|'settingsScope')`（非严格，缺失即 undefined），apply 内先探一次，未命中则 `setTimeout` 短重试（25×200ms，`unref` 不挡退出），命中识别形态后走对应分支，两者都缺记 info 日志——配置经 cordis.patch.yml 生效，providers.json 同步不受影响。不用 `ctx.inject(['settings'])`：apply 时机早于同批服务激活，且未来组合可能不含 dsh-settings，硬等待会 pending。
+- **Config schema 能力探测**：宿主 schemastery 有 `.volatile()`（0.2.x）时顶层四字段自动标记——这是 0.2.x 表单自动服务的闸口（`volatileForm` 只保留 volatile 子树）；0.1.x 无此 API，原样返回。volatile 内嵌约束（官方 `validateVolatileSchema`）：volatile 字段不可嵌套、dict key 不可 volatile——故只标顶层，providers dict 整体标、条目内不标。
+- **apply 收到的 volatile 字段是 `{ get() }` 引用**：`unwrapResolved()` 统一解包成纯 JSON 后再校验/落盘；0.1.x 普通值幂等透传。
+- **花名册行 id 必须是 `langhuan`**：0.2.x 的命名空间 = entry id，id 不同卡片不出现。
+
+**Desktop 0.2.0 已知限制**：0.2.x 卡片路径按 asar 静态实证实现（`dsh-client-ui-settings` 系包 client.js 实样对照），**未经实机验证**。用户侧验证步骤：Desktop 装入本插件后启动 → 设置 → 插件页出现「LangHuan 模型运营商」卡片 → 改一项保存 → 观察 `profiles/desktop/cordis.patch.yml` 出现/更新 `langhuan` 行的 `config:`、`~/.agents/skills/langhuan-lit-scout-harvester/config/providers.json` 同步更新。若卡片未出现但 Desktop 正常启动、providers.json 正常同步，即「第一优先级（能启动）」达成，卡片问题开 issue 跟进。
+
 ## 实现备注
 
 - 加载契约：命名导出 `{ apply, Config, name }`（cordis loader 取模块命名空间对象的 `.apply`/`.Config`，经 `unwrapExports`）；本仓库以本机 DSH 0.1.5-rc.3 的全局包 lib/ 与官方仓库 cookbook 交叉验证。
-- Config 双路径（已在 scratch profile 实测两种安装形态）：宿主可解析 `@deepseek-ai/schemastery` 时用 canonical `z.object` schema；`pnpm link:` 本地文件夹安装时插件 realpath 在仓库树内、解析不到宿主依赖，自动回退零依赖 Standard Schema v1（cordis `resolveConfig` 消费 `Config['~standard'].validate`，两条路径解析语义一致）。DSH 的 profiles 级共享 node_modules（`~/.dsh/profiles/node_modules`）使实体安装（tarball/npm）天然走 canonical 路径。
-- 浏览器半侧（`lib/client.js`）：DSH 客户端模块系统的 lazy-CJS factory（`window.__ModuleLoader__.load({id, factory(require)})`，契约对照官方 packages/client/{modules,ui-slots,web} 源码与内置 ui-settings-plugins/client.js）。只 `require` 基座内的 react，故 `dsh.client` 无 `external`；`inject: ["@deepseek-ai/dsh-client-ui-settings"]` 保证 settingsScope 提供方先加载。卡片注册进 `settings.plugin.item`（keyed slot，key = settings 命名空间），由 ui-settings-plugins 的「插件配置」页按「Host 服务的命名空间 ∩ 卡片认领」分发。
-- 服务端命名空间注册：`ctx.settings.installSection(ctx, 'langhuan', Config, entry, {validate, setSource, onChange})`（内置 dsh-bash-local 同款；user section 持久化到 `$DSH_HOME/settings.yaml`，watched 文档，写后 setSource 换源 + onChange 重同步 providers.json）。注册需 schemastery schema，故仅 canonical 路径注册；回退路径跳过（记 info 日志）。
+- Config 双路径（已在 scratch profile 实测两种安装形态）：宿主可解析 `@deepseek-ai/schemastery` 时用 canonical `z.object` schema（0.2.x 自动补 `.volatile()` 标记，见上节）；`pnpm link:` 本地文件夹安装时插件 realpath 在仓库树内、解析不到宿主依赖，自动回退零依赖 Standard Schema v1（cordis `resolveConfig` 消费 `Config['~standard'].validate`，两条路径解析语义一致）。DSH 的 profiles 级共享 node_modules（`~/.dsh/profiles/node_modules`）使实体安装（tarball/npm）天然走 canonical 路径。
+- 浏览器半侧（`lib/client.js`）：DSH 客户端模块系统的 lazy-CJS factory（`window.__ModuleLoader__.load({id, factory(require)})`，契约对照官方 packages/client/{modules,ui-slots,web} 源码、内置 ui-settings-plugins/client.js（0.1.x）与 asar 内 dsh-client-ui-settings 系包（0.2.x））。只 `require` 基座内的 react，故 `dsh.client` 无 `external`；`inject: ["@deepseek-ai/dsh-client-ui-settings"]` 保证 0.1.x settingsScope 提供方先加载。卡片 UI（providers 表格 / ssh_tunnel 隧道参数 / 角色下拉 / logprobs 校验 / reserved 锁定 / apiKeyEnv 只读）两条路径一致。
+- 服务端命名空间注册（0.1.x）：`settings.installSection(ctx, 'langhuan', Config, entry, {validate, setSource, onChange})`（内置 dsh-bash-local 同款；user section 持久化到 `$DSH_HOME/settings.yaml`，watched 文档，写后 setSource 换源 + onChange 重同步 providers.json）。注册需 schemastery schema，故仅 canonical 路径注册；回退路径跳过（记 info 日志）。
 - 目录里 `lib/` 为手写 ESM + 手写 client factory，无构建步骤；改源码即改产物。peerDependencies 仅 `@deepseek-ai/cordis`（仅类型）与 `@deepseek-ai/schemastery`，由 DSH 宿主解析。

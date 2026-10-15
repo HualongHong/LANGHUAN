@@ -3,6 +3,19 @@
  * 路径（z.object，与内置插件同 idioms）；解析不到（pnpm link: 本地文件夹
  * 安装时插件 realpath 不在宿主 node_modules 树内）由 lib/index.js 回退到
  * 零依赖 Standard Schema，语义由 lib/resolve-config.js 保证一致。
+ *
+ * 版本兼容（0.1.x CLI / 0.2.x Desktop 双路径，Volatile 标记按能力探测）：
+ * - 0.1.x（schemastery 3.18.x）：无 .volatile()；settings 命名空间靠服务端
+ *   installSection 注册（lib/index.js 探测）；字段为普通值。
+ * - 0.2.x（Desktop 0.2.0+）：schemastery 有 .volatile()；Host 把「含 volatile
+ *   字段的插件 Config」自动服务为设置命名空间（ns = loader entry id，
+ *   见 dsh-settings describe：volatileForm 只保留 volatile 子树），写入经
+ *   configEditor 落 profile patch；volatile 字段在 apply 收到的解析值里是
+ *   Volatile 引用（.get() 现取），live 更新经 loader/volatile-update 事件
+ *   送达（lib/index.js 监听后重同步）。
+ *   volatile 内嵌约束（官方 validateVolatileSchema）：volatile 字段不能有
+ *   volatile 祖先/后代，dict key 不可 volatile —— 故只在顶层四字段标
+ *   volatile，providers dict 整体标 volatile（条目内不再标）。
  */
 
 import { DEFAULT_ANNOTATION_PROVIDER, DEFAULT_DECISION_PROVIDER, DEFAULT_PROVIDERS, DEFAULT_SKILLS_DIR } from './presets.js';
@@ -12,6 +25,10 @@ import { PROVIDER_TYPES, resolveConfigValue } from './resolve-config.js';
  * @param {any} z @deepseek-ai/schemastery 默认导出
  */
 export function buildSchemasteryConfig(z) {
+  const supportsVolatile = typeof z.string().volatile === 'function';
+  /** 0.2.x 标记 volatile（设置表单自动服务的闸口）；0.1.x 原样返回。 */
+  const vol = (schema) => (supportsVolatile && typeof schema.volatile === 'function' ? schema.volatile() : schema);
+
   const providerEntry = z.object({
     operator: z.string().default('').description('运营商显示名'),
     type: z.union([...PROVIDER_TYPES])
@@ -36,13 +53,13 @@ export function buildSchemasteryConfig(z) {
   });
 
   return z.object({
-    providers: z.dict(providerEntry).default(DEFAULT_PROVIDERS)
+    providers: vol(z.dict(providerEntry).default(DEFAULT_PROVIDERS))
       .description('模型运营商注册表（以 provider id 为键；出厂为 LangHuan 10 预置）'),
-    annotationProvider: z.string().default(DEFAULT_ANNOTATION_PROVIDER)
+    annotationProvider: vol(z.string().default(DEFAULT_ANNOTATION_PROVIDER))
       .description('标注角色（阶段 A）选用的 provider id；置空表示不写入'),
-    decisionProvider: z.string().default(DEFAULT_DECISION_PROVIDER)
+    decisionProvider: vol(z.string().default(DEFAULT_DECISION_PROVIDER))
       .description('决策角色（阶段 B，要求 supportsLogprobs）选用的 provider id；置空表示不写入'),
-    skillsDir: z.string().default(DEFAULT_SKILLS_DIR)
+    skillsDir: vol(z.string().default(DEFAULT_SKILLS_DIR))
       .description('LangHuan 技能根目录（providers.json 写到其下 langhuan-lit-scout-harvester/config/）'),
   });
 }

@@ -1,20 +1,27 @@
 /*
  * @langhuan/dsh-plugin —— 浏览器半侧（DSH 客户端模块系统 lazy-CJS factory）。
  *
- * 契约（对照 dsh-client-ui-settings-plugins/lib/client.js 与官方
- * packages/client/{modules,ui-slots,web} 源码确认，DSH 0.1.5-rc.3）：
- * - 入口格式：window.__ModuleLoader__.load({ id: <裸包名>, factory(require) })；
- *   factory 内 require 只解析 PLATFORM_MODULES 基座（react、
- *   @deepseek-ai/dsh-client-store 等）或 dsh.client.external 声明的 row；
- * - 模块体保持惰性：副作用（本插件无 CSS）须在 factory 闭包内；
+ * 契约（对照官方包源码实证）：
+ * - 入口格式：window.__ModuleLoader__.load({ id: <裸包名>, factory(require) })，
+ *   require 只解析 PLATFORM_MODULES 基座（本插件只用 react），模块体惰性；
  * - 客户端插件导出 { apply, inject }（cordis 浏览器侧插件形态）；
- * - 卡片注册进 settings.plugin.item（keyed slot，options.key = settings
- *   命名空间），由 ui-settings-plugins 的「插件配置」页按
- *   「Host 服务的命名空间 ∩ 卡片认领」分发渲染；
- * - inject() 返回 { hooks: {<name>: observableStore}, ...actions }：
- *   hooks 成员变成组件的 use<Name> 选择器钩子，其余成员平铺为 props；
- * - 写入经 ctx.settingsScope.bind({namespace}).mutate(ops, expectedRevision?)，
- *   ops 为 path-addressed {op:'set'|'unset'}，服务端校验拒绝时草稿保留。
+ * - inject() 返回 { hooks: {<name>: observableStore}, ...actions }：hooks 成员
+ *   变成组件的 use<Name> 选择器钩子，其余平铺为 props。
+ *
+ * 双版本兼容（0.1.x CLI / 0.2.x Desktop，apply 内运行期探测，绝不 pending）：
+ * - 0.2.x（Desktop 0.2.0+，asar 内 dsh-client-ui-settings 系包 client.js 实样）：
+ *   ctx.get('configForms') 存在 → configForms.get(entryId) 取表单 scope，
+ *   configForms.whileServed([entryId], cb) 在 Host 服务命名空间期间把卡片
+ *   挂进 plugins.item（options {name,id,order,label,locale,inject}）；组件
+ *   会收到 props.view：'summary' 时返回一行简介。scope.mutate(ops, rev)
+ *   返回 boolean（Host 是否接受）。
+ * - 0.1.x（CLI 0.1.5-rc.3 验证）：ctx.get('settingsScope') →
+ *   settingsScope.bind({namespace}) + settings.plugin.item（keyed，options.key
+ *   = 命名空间）；scope.mutate 静默落定，靠回读确认。
+ * - 两者都缺：记日志，不注册卡片（providers.json 同步不受影响）。
+ *
+ * UI 内容（providers 表格 / ssh_tunnel 隧道参数 / 角色下拉 / logprobs 校验 /
+ * reserved 锁定 / apiKeyEnv 只读）两条路径完全一致。
  *
  * 本插件只 require 基座内的 react，故 dsh.client 无需 external 字段。
  */
@@ -29,10 +36,17 @@ window.__ModuleLoader__.load({
     //#region langhuan client constants
     /** Locale dictionary namespace（注册进 ctx.locale）。 */
     const NS = 'langhuan';
-    /** Host 侧 settings 命名空间（与服务端 installSection 的 ns 一致）。 */
-    const SETTINGS_NS = 'langhuan';
-    /** 客户端插件依赖的浏览器侧服务。 */
-    const inject = ['slots', 'locale', 'settingsScope'];
+    /**
+     * Host 侧 settings/configForms 命名空间 = 本插件的 loader entry id。
+     * 花名册行 id 必须是 'langhuan'（cordis.patch.yml 的 - insert: 行）。
+     */
+    const ENTRY_ID = 'langhuan';
+    /**
+     * 客户端插件依赖的浏览器侧服务——只声明两个版本都存在的基座服务。
+     * 设置形态（0.1.x settingsScope / 0.2.x configForms）在 apply 内
+     * ctx.get() 探测，缺失绝不 pending（pending 会让 0.2.0 web boot 失败）。
+     */
+    const inject = ['slots', 'locale'];
 
     const BOOL_FIELDS = new Set(['enabled', 'supportsLogprobs', 'reserved']);
     /** 可编辑字段（apiKeyEnv/type/reserved 只读展示）。 */
@@ -351,9 +365,16 @@ window.__ModuleLoader__.load({
         this.saving = true;
         this.failed = false;
         this.publish();
-        await this.scope.mutate(ops);
-        // Host 是唯一权威：回读确认（mutate 被拒时静默落定，草稿保留）。
-        const landed = [...this.staged.keys()].every((key) => {
+        // 0.2.x scope.mutate 返回 boolean（Host 是否接受）；0.1.x 静默落定
+        // 返回 undefined——两种形态都以回读确认为准（Host 是唯一权威）。
+        let accepted = true;
+        try {
+          const answer = await this.scope.mutate(ops);
+          if (answer === false) accepted = false;
+        } catch {
+          accepted = false;
+        }
+        const landed = accepted && [...this.staged.keys()].every((key) => {
           const path = pathOf(key);
           const staged = this.staged.get(key);
           let node = this.value();
@@ -506,10 +527,12 @@ window.__ModuleLoader__.load({
     }
 
     function LanghuanCard(props) {
+      const t = props.t;
+      // 0.2.x plugins.item：列表行内摘要视图只回一行简介（asar 内置卡片实样）。
+      if (props.view === 'summary') return t('cardDescription');
       const [open, setOpen] = react.useState(false);
       const s = props.useLanghuanCard((snapshot) => snapshot);
       if (!s.available) return null;
-      const t = props.t;
       const blocked = !s.dirty || s.invalid || s.saving || !s.writable;
       const providerRows = Object.values(s.providers);
       return react.createElement('li', { style: S.card },
@@ -565,20 +588,84 @@ window.__ModuleLoader__.load({
     }
     //#endregion
 
-    //#region client plugin apply
+    //#region client plugin apply（运行期探测双版本，绝不 pending；异步重试消除服务激活次序影响）
+    const probe = (ctx, service) => {
+      try {
+        return ctx.get(service);
+      } catch {
+        return undefined;
+      }
+    };
+
     function apply(ctx) {
       const t = ctx.locale.bind(NS);
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'langhuan: locale dictionaries');
-      const controller = new LanghuanCardController(ctx.settingsScope.bind({ namespace: SETTINGS_NS }), t);
-      ctx.effect(() => () => controller.dispose(), 'langhuan: card controller');
-      ctx.slots.inject('settings.plugin.item', function* () {
-        yield ctx.slots.register({
-          name: 'settings.plugin.item',
-          key: SETTINGS_NS,
-          locale: NS,
-          inject: () => controller.inject()
-        }, LanghuanCard);
-      });
+
+      /** 两条路径各自尝试注册一次；返回 'attached' | 'pending'（服务未起）| 'none'。 */
+      const tryAttach = () => {
+        // ── 0.2.x（Desktop 0.2.0+）：configForms → whileServed + plugins.item ──
+        const configForms = probe(ctx, 'configForms');
+        if (configForms && typeof configForms.get === 'function' && typeof configForms.whileServed === 'function') {
+          try {
+            const controller = new LanghuanCardController(configForms.get(ENTRY_ID), t);
+            ctx.effect(() => () => controller.dispose(), 'langhuan: card controller');
+            ctx.effect(() => configForms.whileServed([ENTRY_ID], () => ctx.slots.inject('plugins.item', () => ctx.slots.register({
+              name: 'plugins.item',
+              id: ENTRY_ID,
+              order: 20,
+              label: () => t('cardTitle'),
+              locale: NS,
+              inject: () => controller.inject()
+            }, LanghuanCard))), 'langhuan: plugins page card');
+            ctx.logger?.info?.('[langhuan] client: 0.2.x configForms 路径已注册（plugins.item，ns=%s）', ENTRY_ID);
+          } catch (error) {
+            ctx.logger?.error?.('[langhuan] client: 0.2.x 卡片注册失败: %s', error);
+          }
+          return 'attached';
+        }
+        // ── 0.1.x（CLI 0.1.5-rc.3）：settingsScope → settings.plugin.item（keyed）──
+        const settingsScope = probe(ctx, 'settingsScope');
+        if (settingsScope && typeof settingsScope.bind === 'function') {
+          try {
+            const controller = new LanghuanCardController(settingsScope.bind({ namespace: ENTRY_ID }), t);
+            ctx.effect(() => () => controller.dispose(), 'langhuan: card controller');
+            ctx.slots.inject('settings.plugin.item', function* () {
+              yield ctx.slots.register({
+                name: 'settings.plugin.item',
+                key: ENTRY_ID,
+                locale: NS,
+                inject: () => controller.inject()
+              }, LanghuanCard);
+            });
+            ctx.logger?.info?.('[langhuan] client: 0.1.x settingsScope 路径已注册（settings.plugin.item，ns=%s）', ENTRY_ID);
+          } catch (error) {
+            ctx.logger?.error?.('[langhuan] client: 0.1.x 卡片注册失败: %s', error);
+          }
+          return 'attached';
+        }
+        return configForms === undefined && settingsScope === undefined ? 'pending' : 'none';
+      };
+
+      // apply 内先探一次；服务未起则异步短重试（0.1.x/0.2.x 的 settings 提供方
+      // 与本插件同批激活时序不定），25×200ms 后放弃——不 pending、不挡启动。
+      let timer = null;
+      let attempts = 0;
+      const deferred = () => {
+        const outcome = tryAttach();
+        if (outcome === 'attached' || outcome === 'none') return;
+        if (++attempts < 25) {
+          timer = setTimeout(deferred, 200);
+          timer.unref?.();
+          return;
+        }
+        ctx.logger?.warn?.('[langhuan] client: 宿主既无 configForms 也无 settingsScope，不注册设置卡片（providers.json 同步不受影响）');
+      };
+      const first = tryAttach();
+      if (first === 'pending') {
+        timer = setTimeout(deferred, 200);
+        timer.unref?.();
+        ctx.effect(() => () => clearTimeout(timer), 'langhuan: settings probe');
+      }
     }
     //#endregion
 
