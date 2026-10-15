@@ -16,9 +16,13 @@
  *   解析语义由 lib/resolve-config.js 保证一致。
  * - 密钥红线：Config 只存 apiKeyEnv（环境变量名），永不存 key 本体，
  *   与内置 dsh-llm-pi-ai 的 apiKeyEnv + role('credential-ref') 惯例一致。
- * - 配置更新路径：Host 保存设置 → fiber.update → 插件以新 config 重启，
- *   apply 重新执行并重新落盘，因此无需监听 loader/volatile-update
- *   （该事件在 cordis 4.0.2 / loader 1.0.3 中尚不存在）。
+ * - 配置更新路径（两条，都会触发 providers.json 重同步）：
+ *   1) cordis.patch.yml 改动 → fiber 重启 → apply 重跑；
+ *   2) 图形设置卡片写入 → settings 命名空间 user section（~/.dsh/settings.yaml）
+ *      → installSection 的 onChange → current() 换源重同步（无重启）。
+ * - 图形设置卡片（浏览器半侧 lib/client.js，lazy-CJS factory）需要服务端
+ *   注册 settings 命名空间 `langhuan`，注册依赖 schemastery schema——仅
+ *   canonical 路径注册；回退路径下卡片不渲染，providers.json 同步不受影响。
  */
 
 let z = null;
@@ -30,7 +34,7 @@ try {
 
 import { buildSchemasteryConfig, buildStandardSchemaConfig } from './schema.js';
 import { syncProvidersJson } from './write-providers.js';
-import { validateConfig } from './resolve-config.js';
+import { validateConfig, assertValidConfig } from './resolve-config.js';
 
 export const name = 'langhuan';
 
@@ -42,39 +46,71 @@ export const Config = z ? buildSchemasteryConfig(z) : buildStandardSchemaConfig(
  * @param {any} config 经 Config 解析后的配置
  */
 export function apply(ctx, config) {
-  for (const error of validateConfig(config)) {
-    ctx.logger.error('[langhuan] 配置校验: %s', error);
-  }
+  // 活的配置源：settings 命名空间接管后经 setSource 换成 provider 解析值。
+  let current = () => config;
+  const service = { path: '', snapshot: null };
 
-  let sync;
-  try {
-    sync = syncProvidersJson(config.skillsDir, {
-      providers: config.providers,
-      annotationProvider: config.annotationProvider,
-      decisionProvider: config.decisionProvider,
+  const sync = (trigger) => {
+    const resolved = current();
+    for (const error of validateConfig(resolved)) {
+      ctx.logger.error('[langhuan] 配置校验 (%s): %s', trigger, error);
+    }
+    let result;
+    try {
+      result = syncProvidersJson(resolved.skillsDir, {
+        providers: resolved.providers,
+        annotationProvider: resolved.annotationProvider,
+        decisionProvider: resolved.decisionProvider,
+      });
+    } catch (error) {
+      ctx.logger.error('[langhuan] providers.json 落盘失败 (%s): %s', trigger, error);
+      return;
+    }
+    service.path = result.path;
+    service.snapshot = result.data;
+    if (result.changed) {
+      const n = result.data.providers?.length ?? 0;
+      ctx.logger.info(
+        '[langhuan] providers.json 已同步 (%s) → %s（%d 个运营商；annotation=%s decision=%s）',
+        trigger,
+        result.path,
+        n,
+        result.data.annotation_provider ?? '（未配置）',
+        result.data.decision_provider ?? '（未配置）',
+      );
+    } else {
+      ctx.logger.debug('[langhuan] providers.json 无变化 (%s)，跳过写入 (%s)', trigger, result.path);
+    }
+  };
+
+  sync('boot');
+
+  // 服务注册点：供其他插件消费当前快照（getter 形式，随每次同步刷新；
+  // cordis 服务，随本插件卸载自动注销）。
+  ctx.provide('langhuanProviders', {
+    get path() { return service.path; },
+    get snapshot() { return service.snapshot; },
+  });
+
+  // 图形设置卡片的服务端前提：注册 settings 命名空间（内置 bash-local 同款
+  // installSection：base = 组合配置，user section 写 ~/.dsh/settings.yaml，
+  // setSource 换源 + onChange 重同步；validate 拒绝非法写入）。
+  if (z) {
+    ctx.inject(['settings'], (settingsCtx) => {
+      try {
+        settingsCtx.settings.installSection(ctx, 'langhuan', Config, config, {
+          validate: assertValidConfig,
+          setSource: (next) => { current = next; },
+          onChange: () => sync('settings'),
+        });
+        ctx.logger.info('[langhuan] settings 命名空间 langhuan 已注册（图形设置卡片可用）');
+      } catch (error) {
+        ctx.logger.error('[langhuan] settings 命名空间注册失败（图形设置卡片不可用）: %s', error);
+      }
     });
-  } catch (error) {
-    ctx.logger.error('[langhuan] providers.json 落盘失败: %s', error);
-    return;
-  }
-  if (sync.changed) {
-    const n = sync.data.providers?.length ?? 0;
-    ctx.logger.info(
-      '[langhuan] providers.json 已同步 → %s（%d 个运营商；annotation=%s decision=%s）',
-      sync.path,
-      n,
-      sync.data.annotation_provider ?? '（未配置）',
-      sync.data.decision_provider ?? '（未配置）',
-    );
   } else {
-    ctx.logger.debug('[langhuan] providers.json 无变化，跳过写入 (%s)', sync.path);
+    ctx.logger.info('[langhuan] 未解析到 schemastery，跳过 settings 命名空间注册（图形设置卡片不可用；providers.json 同步不受影响）');
   }
-
-  // 服务注册点：供其他插件消费当前快照（cordis 服务，随本插件卸载自动注销）。
-  ctx.provide('langhuanProviders', Object.freeze({
-    path: sync.path,
-    snapshot: Object.freeze(sync.data),
-  }));
 }
 
 export { validateConfig };

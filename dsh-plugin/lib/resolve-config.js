@@ -141,3 +141,15 @@ export function validateConfig(config) {
   });
   return errors;
 }
+
+/**
+ * 校验并抛出（settings 命名空间 validate 钩子的形态）：写入被拒时
+ * SettingsProvider 把异常分类为拒绝，客户端草稿保留。
+ * @param {any} config
+ */
+export function assertValidConfig(config) {
+  const errors = validateConfig(config);
+  if (errors.length) {
+    throw new Error('langhuan 配置校验失败:\n' + errors.map((e) => ` - ${e}`).join('\n'));
+  }
+}
