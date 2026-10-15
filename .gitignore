@@ -26,6 +26,7 @@ data/samples/
 # ---- 各技能运行时队列/缓存 ----
 .lit_scout/
 .lit_scout_llm/
+tunnels/
 *.db
 *.db-wal
 *.db-shm

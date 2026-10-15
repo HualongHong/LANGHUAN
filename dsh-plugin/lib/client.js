@@ -70,6 +70,8 @@ window.__ModuleLoader__.load({
       roleReserved: '预留入口，禁止选用',
       roleNoLogprobs: '不支持 logprobs',
       invalidEnabled: '已启用但 Base URL / 密钥环境变量名为空',
+      tunnelBadge: '隧道',
+      tunnelSummaryMissing: 'SSH 参数待填',
       apiKeyEnvHint: '只读：key 的值填在 ~/.agents/skills/langhuan.env（单一事实来源，硬链接分发给各 langhuan-* 技能）。',
       noProviders: '（providers 为空）'
     };
@@ -103,6 +105,8 @@ window.__ModuleLoader__.load({
       roleReserved: 'reserved route, selection disabled',
       roleNoLogprobs: 'logprobs unsupported',
       invalidEnabled: 'enabled but Base URL / API-key env var is empty',
+      tunnelBadge: 'tunnel',
+      tunnelSummaryMissing: 'SSH params to fill',
       apiKeyEnvHint: 'Read-only: put the key value in ~/.agents/skills/langhuan.env (single source of truth, hard-linked into every langhuan-* skill).',
       noProviders: '(no providers)'
     };
@@ -138,6 +142,11 @@ window.__ModuleLoader__.load({
         if (entry.enabled) {
           if (!entry.baseUrl) errors.push({ target: 'providers.' + id, message: 'empty baseUrl' });
           if (!entry.apiKeyEnv) errors.push({ target: 'providers.' + id, message: 'empty apiKeyEnv' });
+          if (entry.type === 'ssh_tunnel') {
+            if (!entry.sshHost) errors.push({ target: 'providers.' + id, message: 'empty sshHost' });
+            if (!entry.sshUser) errors.push({ target: 'providers.' + id, message: 'empty sshUser' });
+            if (!entry.localPort) errors.push({ target: 'providers.' + id, message: 'empty localPort' });
+          }
         }
       }
       const checkRole = (role, slot, extra) => {
@@ -164,6 +173,14 @@ window.__ModuleLoader__.load({
         return { value: id, label: entry.operator || id, disabled: reason !== '', reason };
       });
       return { annotation: build('annotation'), decision: build('decision') };
+    }
+
+    /** ssh_tunnel 行摘要：ssh_user@ssh_host:port → remote:port（缺参数时提示待填）。 */
+    function tunnelSummaryText(tunnel, t) {
+      if (!tunnel.sshHost || !tunnel.sshUser) return t('tunnelSummaryMissing');
+      const remote = tunnel.remoteHost ? tunnel.remoteHost + ':' + (tunnel.remotePort || '?') : '?';
+      const local = tunnel.localPort ? ':' + tunnel.localPort : ':?';
+      return tunnel.sshUser + '@' + tunnel.sshHost + ':' + tunnel.sshPort + ' → ' + remote + '（' + local + '）';
     }
     //#endregion
 
@@ -230,6 +247,16 @@ window.__ModuleLoader__.load({
         if (ready) {
           for (const [id, entry] of Object.entries(projected.providers || {})) {
             const row = { id, reserved: !!entry.reserved, fields: {} };
+            if (entry.type === 'ssh_tunnel') {
+              row.tunnel = {
+                sshHost: entry.sshHost || '',
+                sshPort: entry.sshPort || 22,
+                sshUser: entry.sshUser || '',
+                remoteHost: entry.remoteHost || '',
+                remotePort: entry.remotePort || 0,
+                localPort: entry.localPort || 0,
+              };
+            }
             for (const field of EDITABLE_FIELDS) {
               const key = 'providers.' + id + '.' + field;
               const staged = this.staged.get(key);
@@ -388,6 +415,7 @@ window.__ModuleLoader__.load({
       buttonPrimary: { background: cssVar('--dsw-alias-brand-primary', '#4d6bfe'), color: '#fff', border: 'none' },
       buttonGhost: { background: 'none', color: cssVar('--dsw-alias-label-secondary', '#aaa'), border: '0.5px solid ' + cssVar('--dsw-alias-border-l4', '#444') },
       lockTag: { fontSize: '11px', color: cssVar('--dsw-alias-label-tertiary', '#888'), border: '0.5px dashed ' + cssVar('--dsw-alias-border-l4', '#444'), borderRadius: '999px', padding: '0 6px', whiteSpace: 'nowrap', display: 'inline-block', marginTop: '2px' },
+      tunnelBadge: { fontSize: '11px', color: cssVar('--dsw-alias-label-tertiary', '#888'), border: '0.5px dashed ' + cssVar('--dsw-alias-border-l4', '#444'), borderRadius: '999px', padding: '0 6px', whiteSpace: 'nowrap', display: 'inline-block' },
       roleRow: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' },
       roleLabel: { fontSize: '12px', color: cssVar('--dsw-alias-label-primary', '#ddd'), minWidth: '220px' }
     };
@@ -437,7 +465,14 @@ window.__ModuleLoader__.load({
             locked ? react.createElement('span', { style: S.lockTag }, t('reservedLock')) : null,
             react.createElement(FieldInput, { field: f('operator'), disabled, onEdit: edit('operator') }))),
         react.createElement('td', { style: S.td },
-          react.createElement('span', { style: { fontSize: '11px', whiteSpace: 'nowrap' } }, f('type').text || '-')),
+          react.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+            react.createElement('span', { style: { fontSize: '11px', whiteSpace: 'nowrap' } }, f('type').text || '-'),
+            row.tunnel
+              ? react.createElement('span', {
+                  style: S.tunnelBadge,
+                  title: 'ssh -L 127.0.0.1:' + (row.tunnel.localPort || '?') + ':' + (row.tunnel.remoteHost || '?') + ':' + (row.tunnel.remotePort || '?')
+                }, t('tunnelBadge') + ' · ' + tunnelSummaryText(row.tunnel, t))
+              : null)),
         react.createElement('td', { style: S.td }, react.createElement(FieldInput, {
           field: f('baseUrl'), disabled, invalid: f('baseUrl').invalid,
           invalidText: t('invalidEnabled'), onEdit: edit('baseUrl')

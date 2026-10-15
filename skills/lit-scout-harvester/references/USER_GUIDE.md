@@ -623,6 +623,11 @@ row["sciQuestion"]["probabilities"]     # 全选项概率分布（可审计）
 `scripts/settings_app.py` 是一个 Streamlit 设置页，集中维护运营商入口、
 角色分配与 API key（key 只经环境变量名引用，永不写入仓库文件）。
 
+> **架构定位一句话**：驱动本技能（脚本编排、工具调用）的是**宿主 Agent 的大
+> 模型**（见 §17 零 key 模式）；本页配置的模型只服务于标注流水线**内部**的
+> LLM 数据提取（term_extractor 等）与 System One 式决策选择（decision_select），
+> 不影响技能的编排层。
+
 启动（cwd = 技能根目录，需装有 streamlit 的 venv；`-m streamlit` 等价于 `streamlit`）：
 
 ```bash
@@ -637,9 +642,10 @@ D:/opt/dev/LangHuan/skills/archive-plate-assembler/.venv/Scripts/python.exe \
 
 页面三块：
 
-1. **运营商入口**：增删改 `config/providers.json` 中的条目。预置 7 个运营商
+1. **运营商入口**：增删改 `config/providers.json` 中的条目。预置 10 个运营商
    （DeepSeek / MiniMax / 阿里云百炼 / 腾讯混元 / JEV 原厂 / 上海超算云平台·LLM /
-   上海超算·类JEV决策模型）；reserved 条目（腾讯混元、JEV 原厂）标灰并注
+   上海超算·类JEV决策模型 / 自建服务器（SSH 隧道）/ 阿里云百炼·模型部署 /
+   scnet.cn 超算·模型部署）；reserved 条目（腾讯混元、JEV 原厂）标灰并注
    「预留·不可访问」，只能禁用不可删除。上海超算两个入口为占位地址
    （`https://llm.shsc.cn/v1`），实际接入后填真实 base_url 与模型名。
 2. **角色分配**：两个角色槽各选一个 **已启用** 入口。决策模型选中不支持
@@ -648,6 +654,40 @@ D:/opt/dev/LangHuan/skills/archive-plate-assembler/.venv/Scripts/python.exe \
    命名 profile，模块侧用 `model_profile: "decision"` 引用），未选则不改动文件。
 3. **API key 管理**：每个运营商一个 password 框，「保存 key」以读-改-写方式
    追加/更新到中央 env 文件，其它行保留；密码框留空表示不改动。
+
+### 16.1 两种接入新模式
+
+除直连 OpenAI 兼容端点外，出厂预置还支持两种新模式（都可指派给标注与决策
+两个角色，HTTP 层面均按 openai_compatible 驱动，type 区分仅供隧道生命周期
+管理与 UI 分组）：
+
+- **SSH 隧道访问自建服务器（`ssh_selfhost`，type = ssh_tunnel）**：本地
+  `ssh -L` 端口转发到远端服务器上的 OpenAI 兼容端点。设置页为该类型展开
+  SSH 字段编辑框（ssh_host / ssh_port / ssh_user / ssh_key_path /
+  remote_host / remote_port / local_port），base_url 指向转发后的本地地址
+  （占位 `http://127.0.0.1:8377/v1`，与 local_port 对应）。启用要求
+  ssh_host + ssh_user + local_port 已填写（保存前校验）。隧道进程用
+  `scripts/model_tunnel.py` 管理（纯标准库，不做真实连接测试）：
+
+  ```bash
+  python -B scripts/model_tunnel.py status            # 隧道是否在跑
+  python -B scripts/model_tunnel.py start             # 拉起全部已启用 ssh_tunnel 条目
+  python -B scripts/model_tunnel.py start --id ssh_selfhost
+  python -B scripts/model_tunnel.py stop [--id ...]   # 终止并清理 pid 文件
+  ```
+
+  start 以 `ssh -N -o BatchMode=yes -o ExitOnForwardFailure=yes -L
+  127.0.0.1:<local_port>:<remote_host>:<remote_port> <ssh_user>@<ssh_host> -p
+  <ssh_port> [-i <ssh_key_path>]` 拉起进程（BatchMode 免密失败会立即退出，
+  start 宽限期会捕获并提示日志尾部）；pid 写在 `<workdir>/tunnels/<id>.pid`、
+  日志写在 `<workdir>/tunnels/<id>.log`，重复 start 幂等跳过。
+- **模型部署服务（`aliyun_model_deploy` / `scnet_model_deploy`，type =
+  model_deployment）**：专用部署端点，各自 base_url + API key。阿里云百炼
+  模型部署（帮助文档：help.aliyun.com/zh/model-studio/model-deployment-quick-start）
+  的 base_url 形如
+  `https://<deployment-id>.<region>.aliyuncs.com/compatible-mode/v1`，按部署
+  实例替换；scnet.cn 超算 model-deploy 的地址与 key 按平台分配填写。两个预置
+  出厂均 enabled=False、supports_logprobs=True（可指派决策角色）。
 
 `providers.json` 与中央 env 的关系：providers.json 只存 **环境变量名**
 （如 `DEEPSEEK_API_KEY`）与元数据，不存 key 本体；key 值集中放在中央 env 文件，

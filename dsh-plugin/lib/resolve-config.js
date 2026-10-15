@@ -10,6 +10,8 @@ export const PROVIDER_TYPES = /** @type {const} */ ([
   'openai_compatible',
   'openai_compatible_decision',
   'jev_legacy',
+  'ssh_tunnel',
+  'model_deployment',
 ]);
 
 const ENTRY_DEFAULTS = {
@@ -17,6 +19,13 @@ const ENTRY_DEFAULTS = {
   type: 'openai_compatible',
   baseUrl: '',
   apiKeyEnv: '',
+  sshHost: '',
+  sshPort: 22,
+  sshUser: '',
+  sshKeyPath: '',
+  remoteHost: '',
+  remotePort: 0,
+  localPort: 0,
   models: /** @type {string[]} */ ([]),
   enabled: false,
   supportsLogprobs: false,
@@ -62,9 +71,13 @@ export function resolveConfigValue(raw) {
         } else if (k === 'models') {
           if (Array.isArray(v) && v.every((m) => typeof m === 'string')) entry.models = [...v];
           else issues.push({ message: `provider '${id}' 的 models 必须是字符串数组`, path: ['providers', id, 'models'] });
-        } else if (k === 'operator' || k === 'baseUrl' || k === 'apiKeyEnv' || k === 'note') {
+        } else if (k === 'operator' || k === 'baseUrl' || k === 'apiKeyEnv' || k === 'note'
+          || k === 'sshHost' || k === 'sshUser' || k === 'sshKeyPath' || k === 'remoteHost') {
           if (typeof v === 'string') entry[k] = v;
           else issues.push({ message: `provider '${id}' 的 ${k} 必须是字符串`, path: ['providers', id, k] });
+        } else if (k === 'sshPort' || k === 'remotePort' || k === 'localPort') {
+          if (typeof v === 'number' && Number.isFinite(v)) entry[k] = v;
+          else issues.push({ message: `provider '${id}' 的 ${k} 必须是数字`, path: ['providers', id, k] });
         } else if (k === 'enabled' || k === 'supportsLogprobs' || k === 'reserved') {
           if (typeof v === 'boolean') entry[k] = v;
           else issues.push({ message: `provider '${id}' 的 ${k} 必须是布尔值`, path: ['providers', id, k] });
@@ -120,6 +133,11 @@ export function validateConfig(config) {
     if (entry.enabled) {
       if (!entry.baseUrl) errors.push(`provider '${id}' 已启用但 baseUrl 为空`);
       if (!entry.apiKeyEnv) errors.push(`provider '${id}' 已启用但 apiKeyEnv 为空`);
+      if (entry.type === 'ssh_tunnel') {
+        if (!entry.sshHost) errors.push(`provider '${id}' 已启用（ssh_tunnel）但 sshHost 为空`);
+        if (!entry.sshUser) errors.push(`provider '${id}' 已启用（ssh_tunnel）但 sshUser 为空`);
+        if (!entry.localPort) errors.push(`provider '${id}' 已启用（ssh_tunnel）但 localPort 未填写`);
+      }
     }
   }
   const checkRole = (role, slot, extra) => {

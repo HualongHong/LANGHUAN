@@ -16,11 +16,13 @@ export interface StandardSchemaIssue {
   path?: (string | number)[];
 }
 
-/** 运营商接口类型。 */
+/** 运营商接口类型（ssh_tunnel / model_deployment HTTP 层面仍按 openai_compatible 驱动）。 */
 export type ProviderType =
   | 'openai_compatible'
   | 'openai_compatible_decision'
-  | 'jev_legacy';
+  | 'jev_legacy'
+  | 'ssh_tunnel'
+  | 'model_deployment';
 
 /** providers dict 单条配置（camelCase；落盘时转为 snake_case）。 */
 export interface ProviderEntryConfig {
@@ -32,6 +34,20 @@ export interface ProviderEntryConfig {
   baseUrl: string;
   /** 密钥环境变量名（只存名字，不存 key 本体） */
   apiKeyEnv: string;
+  /** ssh_tunnel：SSH 服务器地址（仅 type=ssh_tunnel 有意义） */
+  sshHost: string;
+  /** ssh_tunnel：SSH 端口 */
+  sshPort: number;
+  /** ssh_tunnel：SSH 登录用户 */
+  sshUser: string;
+  /** ssh_tunnel：私钥路径（空 = 默认密钥/ssh-agent） */
+  sshKeyPath: string;
+  /** ssh_tunnel：转发目标地址（远端 OpenAI 端点 host） */
+  remoteHost: string;
+  /** ssh_tunnel：转发目标端口 */
+  remotePort: number;
+  /** ssh_tunnel：本地监听端口（baseUrl 指向 127.0.0.1:<localPort>） */
+  localPort: number;
   /** 可用模型 id 列表 */
   models: string[];
   /** 启用开关 */

@@ -36,7 +36,7 @@ Lit-Scout-Harvester 两段式标注（annotation → llm 主段；decision → l
 
 插件自带浏览器半侧（`lib/client.js`，DSH 客户端模块系统 lazy-CJS factory）。装好并启动后：**设置 → 插件 → 插件配置**页出现「LangHuan 模型运营商」卡片：
 
-- **运营商入口表格**：启用开关、显示名、baseUrl、模型列表（逗号分隔）、logprobs 开关、备注可编辑；`reserved` 预留条目标注「预留·不可访问（锁定）」且整行禁用；**apiKeyEnv 只读展示**（值永远不进表单），下方提示去 `~/.agents/skills/langhuan.env` 填 key。
+- **运营商入口表格**：启用开关、显示名、baseUrl、模型列表（逗号分隔）、logprobs 开关、备注可编辑；`reserved` 预留条目标注「预留·不可访问（锁定）」且整行禁用；**apiKeyEnv 只读展示**（值永远不进表单），下方提示去 `~/.agents/skills/langhuan.env` 填 key。`ssh_tunnel` 条目在类型列带「隧道」徽注与 `user@host:port → remote:port` 摘要（tooltip 为等价 `ssh -L` 命令）；ssh 连接参数不在卡片内编辑，经 Streamlit 设置页或 providers.json 维护，隧道进程用 LSH 的 `scripts/model_tunnel.py` 管理。
 - **角色分配下拉**：标注/决策两个角色槽，选项按 Python 侧同语义过滤——未启用/reserved 的条目标注原因并禁用，决策角色额外要求 supportsLogprobs；无效选择即时报错并阻止保存。
 - **保存/放弃**：草稿本地暂存，保存走 settings 原子 mutate（revision 围栏）；服务端校验拒绝时保留草稿。复位（reset）等价于 unset，回落到 cordis.patch.yml 组合默认值。
 
@@ -48,12 +48,20 @@ Lit-Scout-Harvester 两段式标注（annotation → llm 主段；decision → l
 
 ```ts
 interface Config {
-  /** 模型运营商注册表，provider id → 条目；出厂默认 = LangHuan 7 预置 */
+  /** 模型运营商注册表，provider id → 条目；出厂默认 = LangHuan 10 预置 */
   providers: Record<string, {
     operator: string;              // 运营商显示名
-    type: 'openai_compatible' | 'openai_compatible_decision' | 'jev_legacy';
+    type: 'openai_compatible' | 'openai_compatible_decision' | 'jev_legacy'
+        | 'ssh_tunnel' | 'model_deployment';  // 后两者 HTTP 层面仍按 openai_compatible 驱动
     baseUrl: string;               // OpenAI 兼容端点
     apiKeyEnv: string;             // 密钥环境变量名（只存名）
+    sshHost: string;               // ssh_tunnel：SSH 服务器地址
+    sshPort: number;               // ssh_tunnel：SSH 端口（默认 22）
+    sshUser: string;               // ssh_tunnel：SSH 登录用户
+    sshKeyPath: string;            // ssh_tunnel：私钥路径（空 = 默认密钥/ssh-agent）
+    remoteHost: string;            // ssh_tunnel：转发目标地址
+    remotePort: number;            // ssh_tunnel：转发目标端口
+    localPort: number;             // ssh_tunnel：本地监听端口（baseUrl 指向 127.0.0.1:<localPort>）
     models: string[];              // 模型 id 列表
     enabled: boolean;
     supportsLogprobs: boolean;     // decision 角色要求 true
@@ -126,7 +134,7 @@ dict 整体替换（默认值不按键合并）。错误与正确写法：
 
 ```yaml
 # ✗ 错误 1：不用 - insert: 包装 → dump-config 报 "patch: entry "langhuan" not found"
-# ✗ 错误 2：providers 只写一个条目 → 其余 6 个预置全部被替换掉
+# ✗ 错误 2：providers 只写一个条目 → 其余 9 个预置全部被替换掉
 - id: langhuan
   name: '@langhuan/dsh-plugin'
   config:
@@ -163,6 +171,27 @@ dict 整体替换（默认值不按键合并）。错误与正确写法：
           jev_original: { reserved: true }
           shanghai_sc_llm: {}
           shanghai_sc_jev: {}
+          # 两种新模式（type 必须显式给出，缺省会回落 openai_compatible）：
+          ssh_selfhost:
+            type: ssh_tunnel
+            baseUrl: http://127.0.0.1:8377/v1
+            apiKeyEnv: SELFHOST_API_KEY
+            supportsLogprobs: true
+            sshHost: my-server.example.com
+            sshUser: deploy
+            remoteHost: 10.0.0.8
+            remotePort: 8080
+            localPort: 8377
+          aliyun_model_deploy:
+            type: model_deployment
+            baseUrl: https://<deployment-id>.<region>.aliyuncs.com/compatible-mode/v1
+            apiKeyEnv: ALIYUN_DEPLOY_API_KEY
+            supportsLogprobs: true
+          scnet_model_deploy:
+            type: model_deployment
+            baseUrl: https://<scnet-endpoint>/v1
+            apiKeyEnv: SCNET_DEPLOY_API_KEY
+            supportsLogprobs: true
 ```
 
 保存后 DSH 重载该插件 → `apply` 重跑 → providers.json 更新。

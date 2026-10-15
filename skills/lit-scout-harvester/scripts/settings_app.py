@@ -68,6 +68,13 @@ def _row_to_entry(row: dict, old: Optional[reg.ProviderEntry]) -> reg.ProviderEn
         type=(old.type if old else reg.TYPE_OPENAI_COMPATIBLE),
         base_url=str(row.get("base_url", "")).strip(),
         api_key_env=str(row.get("api_key_env", "")).strip(),
+        ssh_host=(old.ssh_host if old else ""),
+        ssh_port=(old.ssh_port if old else 22),
+        ssh_user=(old.ssh_user if old else ""),
+        ssh_key_path=(old.ssh_key_path if old else ""),
+        remote_host=(old.remote_host if old else ""),
+        remote_port=(old.remote_port if old else 0),
+        local_port=(old.local_port if old else 0),
         models=models,
         enabled=bool(row.get("enabled", False)),
         supports_logprobs=old.supports_logprobs if old else False,
@@ -214,6 +221,66 @@ def main() -> None:
                 st.rerun()
         else:
             st.caption("暂无自定义条目可删除。")
+
+    # ssh_tunnel 条目的 SSH 连接参数（不进主表格，单独展开编辑；model_deployment
+    # 条目无附加字段，base_url / api_key_env 在主表格中正常编辑即可）。
+    ssh_entries = [e for e in editable_entries if e.type == reg.TYPE_SSH_TUNNEL]
+    if ssh_entries:
+        st.markdown("**SSH 隧道参数（type = ssh_tunnel）**")
+        st.caption(
+            "隧道把远端服务器上的 OpenAI 兼容端点转发到本地：base_url 应指向 "
+            "http://127.0.0.1:<local_port>/v1。隧道进程用 "
+            "`python -B scripts/model_tunnel.py start|stop|status` 管理（providers.json 中 "
+            "已启用且 type=ssh_tunnel 的条目）。"
+        )
+    for entry in ssh_entries:
+        with st.expander(f"🔐 {entry.operator}（{entry.id}）"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                entry.ssh_host = st.text_input(
+                    "ssh_host", value=entry.ssh_host, key=f"ssh_host_{entry.id}",
+                    help="SSH 服务器地址（域名或 IP）。",
+                )
+                entry.ssh_user = st.text_input(
+                    "ssh_user", value=entry.ssh_user, key=f"ssh_user_{entry.id}",
+                    help="SSH 登录用户。",
+                )
+                entry.ssh_key_path = st.text_input(
+                    "ssh_key_path", value=entry.ssh_key_path, key=f"ssh_key_{entry.id}",
+                    help="私钥路径，留空走默认密钥 / ssh-agent。",
+                )
+            with c2:
+                entry.ssh_port = int(
+                    st.number_input(
+                        "ssh_port", value=int(entry.ssh_port or 22), min_value=1, max_value=65535,
+                        step=1, key=f"ssh_port_{entry.id}",
+                    )
+                )
+                entry.remote_host = st.text_input(
+                    "remote_host", value=entry.remote_host, key=f"remote_host_{entry.id}",
+                    help="转发目标地址：远端侧 OpenAI 端点所在 host（隧道服务器视角）。",
+                )
+                entry.remote_port = int(
+                    st.number_input(
+                        "remote_port", value=int(entry.remote_port or 0), min_value=0, max_value=65535,
+                        step=1, key=f"remote_port_{entry.id}",
+                        help="转发目标端口；0 = 未填写（启用前必填）。",
+                    )
+                )
+            with c3:
+                entry.local_port = int(
+                    st.number_input(
+                        "local_port", value=int(entry.local_port or 0), min_value=0, max_value=65535,
+                        step=1, key=f"local_port_{entry.id}",
+                        help="本地监听端口；0 = 未填写（启用前必填）。",
+                    )
+                )
+            st.caption(
+                f"等价命令：ssh -N -L 127.0.0.1:{entry.local_port or '<local_port>'}:"
+                f"{entry.remote_host or '<remote_host>'}:{entry.remote_port or '<remote_port>'} "
+                f"{entry.ssh_user or '<ssh_user>'}@{entry.ssh_host or '<ssh_host>'} -p {entry.ssh_port}"
+                + (f" -i {entry.ssh_key_path}" if entry.ssh_key_path else "")
+            )
 
     # ------------------------------------------------------------------ #
     # 2. 角色分配

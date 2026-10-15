@@ -16,10 +16,17 @@ export function buildSchemasteryConfig(z) {
     operator: z.string().default('').description('运营商显示名'),
     type: z.union([...PROVIDER_TYPES])
       .default('openai_compatible')
-      .description('接口类型：openai_compatible / openai_compatible_decision / jev_legacy'),
+      .description('接口类型：openai_compatible / openai_compatible_decision / jev_legacy / ssh_tunnel / model_deployment（后两者 HTTP 层面仍按 openai_compatible 驱动，type 区分仅供隧道生命周期管理与 UI 分组）'),
     baseUrl: z.string().default('').description('OpenAI 兼容端点 base URL'),
     apiKeyEnv: z.string().role('credential-ref').default('')
       .description('密钥环境变量名（只存名字；值维护在中央 langhuan.env，永不入库）'),
+    sshHost: z.string().default('').description('ssh_tunnel：SSH 服务器地址'),
+    sshPort: z.number().default(22).description('ssh_tunnel：SSH 端口'),
+    sshUser: z.string().default('').description('ssh_tunnel：SSH 登录用户'),
+    sshKeyPath: z.string().default('').description('ssh_tunnel：私钥路径（空 = 默认密钥/ssh-agent）'),
+    remoteHost: z.string().default('').description('ssh_tunnel：转发目标地址（远端 OpenAI 端点 host）'),
+    remotePort: z.number().default(0).description('ssh_tunnel：转发目标端口'),
+    localPort: z.number().default(0).description('ssh_tunnel：本地监听端口（base_url 指向 127.0.0.1:<localPort>）'),
     models: z.array(z.string()).default([]).description('可用模型 id 列表'),
     enabled: z.boolean().default(false).description('启用开关（reserved 条目即使启用也不可选用）'),
     supportsLogprobs: z.boolean().default(false)
@@ -30,7 +37,7 @@ export function buildSchemasteryConfig(z) {
 
   return z.object({
     providers: z.dict(providerEntry).default(DEFAULT_PROVIDERS)
-      .description('模型运营商注册表（以 provider id 为键；出厂为 LangHuan 7 预置）'),
+      .description('模型运营商注册表（以 provider id 为键；出厂为 LangHuan 10 预置）'),
     annotationProvider: z.string().default(DEFAULT_ANNOTATION_PROVIDER)
       .description('标注角色（阶段 A）选用的 provider id；置空表示不写入'),
     decisionProvider: z.string().default(DEFAULT_DECISION_PROVIDER)

@@ -22,8 +22,8 @@ FACTORY_JSON = SKILL_ROOT / "config" / "providers.json"
 def test_factory_json_matches_presets():
     registry = pr.load_registry(FACTORY_JSON)
     assert [e.id for e in registry.providers] == list(pr.PRESET_IDS)
-    assert len(registry.providers) == 7
-    assert len({e.id for e in registry.providers}) == 7  # id 唯一
+    assert len(registry.providers) == 10
+    assert len({e.id for e in registry.providers}) == 10  # id 唯一
     by_id = {e.id: e for e in registry.providers}
     # 预留入口
     assert by_id["tencent"].reserved is True and by_id["tencent"].enabled is False
@@ -40,6 +40,42 @@ def test_factory_json_matches_presets():
     # 出厂角色槽
     assert registry.annotation_provider == "deepseek"
     assert registry.decision_provider == "deepseek"
+
+
+def test_factory_json_new_presets():
+    """出厂 3 个新预置：ssh_tunnel + 两个 model_deployment 专用端点。"""
+    registry = pr.load_registry(FACTORY_JSON)
+    by_id = {e.id: e for e in registry.providers}
+    # SSH 隧道自建服务器
+    ssh = by_id["ssh_selfhost"]
+    assert ssh.type == pr.TYPE_SSH_TUNNEL
+    assert ssh.operator == "自建服务器（SSH 隧道）"
+    assert ssh.base_url == "http://127.0.0.1:8377/v1"
+    assert ssh.api_key_env == "SELFHOST_API_KEY"
+    assert ssh.supports_logprobs is True
+    assert ssh.enabled is False
+    assert "model_tunnel.py" in ssh.note
+    # SSH 连接字段留空待填（local_port 与 base_url 占位端口一致）
+    assert ssh.ssh_host == "" and ssh.ssh_user == "" and ssh.ssh_key_path == ""
+    assert ssh.remote_host == "" and ssh.remote_port == 0
+    assert ssh.local_port == 8377 and ssh.ssh_port == 22
+    # 阿里云百炼模型部署
+    ali = by_id["aliyun_model_deploy"]
+    assert ali.type == pr.TYPE_MODEL_DEPLOYMENT
+    assert ali.base_url == "https://<deployment-id>.<region>.aliyuncs.com/compatible-mode/v1"
+    assert ali.api_key_env == "ALIYUN_DEPLOY_API_KEY"
+    assert ali.supports_logprobs is True and ali.enabled is False
+    # scnet.cn 超算模型部署
+    scnet = by_id["scnet_model_deploy"]
+    assert scnet.type == pr.TYPE_MODEL_DEPLOYMENT
+    assert scnet.base_url == "https://<scnet-endpoint>/v1"
+    assert scnet.api_key_env == "SCNET_DEPLOY_API_KEY"
+    assert scnet.supports_logprobs is True and scnet.enabled is False
+    # 三个新类型都进了 PROVIDER_TYPES
+    assert pr.TYPE_SSH_TUNNEL in pr.PROVIDER_TYPES
+    assert pr.TYPE_MODEL_DEPLOYMENT in pr.PROVIDER_TYPES
+    # 新预置出厂校验通过（disabled，ssh 字段留空不报错）
+    assert pr.validate(registry) == []
 
 
 def test_presets_do_not_alias_module_state():
@@ -146,6 +182,87 @@ def test_validate_role_points_to_missing_id():
     registry = _registry_with(decision_provider="ghost")
     errors = pr.validate(registry)
     assert any("ghost" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# ssh_tunnel / model_deployment 新类型
+# ---------------------------------------------------------------------------
+
+
+def _enabled_ssh_entry(**overrides) -> pr.ProviderEntry:
+    entry = pr.preset_entry("ssh_selfhost")
+    entry.enabled = True
+    entry.ssh_host = "bastion.example.com"
+    entry.ssh_user = "deploy"
+    entry.ssh_key_path = "/home/deploy/.ssh/id_ed25519"
+    entry.remote_host = "10.0.0.8"
+    entry.remote_port = 8080
+    entry.local_port = 8377
+    for key, value in overrides.items():
+        setattr(entry, key, value)
+    return entry
+
+
+def test_validate_ssh_tunnel_enabled_requires_fields():
+    registry = pr.ProviderRegistry(providers=[_enabled_ssh_entry()])
+    assert pr.validate(registry) == []
+    for field in ("ssh_host", "ssh_user", "local_port"):
+        entry = _enabled_ssh_entry(**{field: "" if field != "local_port" else 0})
+        errors = pr.validate(pr.ProviderRegistry(providers=[entry]))
+        assert any("ssh_selfhost" in e and field in e for e in errors), field
+    # disabled 时不强制 ssh 字段（出厂预置即如此）
+    disabled = pr.preset_entry("ssh_selfhost")
+    assert pr.validate(pr.ProviderRegistry(providers=[disabled])) == []
+
+
+def test_validate_model_deployment_enabled_normal_rules():
+    entry = pr.preset_entry("aliyun_model_deploy")
+    entry.enabled = True
+    assert pr.validate(pr.ProviderRegistry(providers=[entry])) == []
+    entry.base_url = ""
+    errors = pr.validate(pr.ProviderRegistry(providers=[entry]))
+    assert any("base_url" in e for e in errors)
+
+
+def test_provider_name_for_new_types_falls_back_to_openai_compatible():
+    # HTTP 层面两种新类型都按 openai_compatible 驱动
+    assert pr.provider_name_for(pr.preset_entry("ssh_selfhost")) == pr.TYPE_OPENAI_COMPATIBLE
+    assert pr.provider_name_for(pr.preset_entry("aliyun_model_deploy")) == pr.TYPE_OPENAI_COMPATIBLE
+    assert pr.provider_name_for(pr.preset_entry("scnet_model_deploy")) == pr.TYPE_OPENAI_COMPATIBLE
+
+
+def test_build_provider_config_transport_marks():
+    ssh_cfg = pr.build_provider_config(pr.preset_entry("ssh_selfhost"))
+    assert ssh_cfg["provider"] == pr.TYPE_OPENAI_COMPATIBLE
+    assert ssh_cfg["transport"] == "ssh_tunnel"
+    assert ssh_cfg["base_url"] == "http://127.0.0.1:8377/v1"
+    # decision 角色：新类型声明了 supports_logprobs，可指派
+    dec_cfg = pr.build_provider_config(pr.preset_entry("ssh_selfhost"), role="decision")
+    assert dec_cfg["transport"] == "ssh_tunnel"
+    assert dec_cfg["requires_logprobs"] is True
+    ali_cfg = pr.build_provider_config(pr.preset_entry("aliyun_model_deploy"))
+    assert ali_cfg["provider"] == pr.TYPE_OPENAI_COMPATIBLE
+    assert ali_cfg["transport"] == "direct"
+    scnet_cfg = pr.build_provider_config(pr.preset_entry("scnet_model_deploy"), role="decision")
+    assert scnet_cfg["transport"] == "direct"
+    assert scnet_cfg["requires_logprobs"] is True
+    # 既有类型不带 transport 键（向后兼容）
+    assert "transport" not in pr.build_provider_config(pr.preset_entry("deepseek"))
+
+
+def test_ssh_fields_roundtrip_through_save_load(tmp_path):
+    registry = pr.ProviderRegistry(providers=[_enabled_ssh_entry()])
+    out = tmp_path / "p.json"
+    pr.save_registry(out, registry)
+    loaded = pr.load_registry(out)
+    entry = loaded.get("ssh_selfhost")
+    assert entry.ssh_host == "bastion.example.com"
+    assert entry.ssh_port == 22
+    assert entry.ssh_user == "deploy"
+    assert entry.ssh_key_path == "/home/deploy/.ssh/id_ed25519"
+    assert entry.remote_host == "10.0.0.8"
+    assert entry.remote_port == 8080
+    assert entry.local_port == 8377
 
 
 # ---------------------------------------------------------------------------

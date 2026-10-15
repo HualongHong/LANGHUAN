@@ -33,7 +33,15 @@ from typing import Any, Dict, List, Optional, Union
 TYPE_OPENAI_COMPATIBLE = "openai_compatible"
 TYPE_OPENAI_COMPATIBLE_DECISION = "openai_compatible_decision"
 TYPE_JEV_LEGACY = "jev_legacy"
-PROVIDER_TYPES = (TYPE_OPENAI_COMPATIBLE, TYPE_OPENAI_COMPATIBLE_DECISION, TYPE_JEV_LEGACY)
+TYPE_SSH_TUNNEL = "ssh_tunnel"
+TYPE_MODEL_DEPLOYMENT = "model_deployment"
+PROVIDER_TYPES = (
+    TYPE_OPENAI_COMPATIBLE,
+    TYPE_OPENAI_COMPATIBLE_DECISION,
+    TYPE_JEV_LEGACY,
+    TYPE_SSH_TUNNEL,
+    TYPE_MODEL_DEPLOYMENT,
+)
 
 ROLE_ANNOTATION = "annotation"
 ROLE_DECISION = "decision"
@@ -78,13 +86,25 @@ class RegistryError(Exception):
 
 @dataclass
 class ProviderEntry:
-    """单个运营商入口。api_key_env 只存环境变量名，永不存 key 本体。"""
+    """单个运营商入口。api_key_env 只存环境变量名，永不存 key 本体。
+
+    ssh_* / remote_* / local_port 仅 type=ssh_tunnel 时有意义：描述
+    ``ssh -L`` 端口转发的连接参数（HTTP 层面仍按 openai_compatible 驱动，
+    type 区分是为了隧道生命周期管理与 UI 分组）。
+    """
 
     id: str = ""
     operator: str = ""  # 显示名
     type: str = TYPE_OPENAI_COMPATIBLE
     base_url: str = ""
     api_key_env: str = ""  # 环境变量名（如 DEEPSEEK_API_KEY）
+    ssh_host: str = ""  # ssh_tunnel：SSH 服务器地址
+    ssh_port: int = 22  # ssh_tunnel：SSH 端口
+    ssh_user: str = ""  # ssh_tunnel：SSH 登录用户
+    ssh_key_path: str = ""  # ssh_tunnel：私钥路径（空 = 走默认密钥/ssh-agent）
+    remote_host: str = ""  # ssh_tunnel：转发目标地址（远端侧 OpenAI 端点 host）
+    remote_port: int = 0  # ssh_tunnel：转发目标端口
+    local_port: int = 0  # ssh_tunnel：本地监听端口（base_url 指向 127.0.0.1:<local_port>）
     models: List[str] = field(default_factory=list)
     enabled: bool = False
     supports_logprobs: bool = False  # decision 角色要求 True
@@ -204,6 +224,46 @@ def _presets() -> List[ProviderEntry]:
             supports_logprobs=True,
             note="类 JEV 决策模型：选项内选择 + 概率输出",
         ),
+        ProviderEntry(
+            id="ssh_selfhost",
+            operator="自建服务器（SSH 隧道）",
+            type=TYPE_SSH_TUNNEL,
+            base_url="http://127.0.0.1:8377/v1",
+            api_key_env="SELFHOST_API_KEY",
+            ssh_host="",
+            ssh_port=22,
+            ssh_user="",
+            ssh_key_path="",
+            remote_host="",
+            remote_port=0,
+            local_port=8377,
+            models=[],
+            enabled=False,
+            supports_logprobs=True,
+            note="ssh -L 隧道转发到自建 OpenAI 兼容端点；用 scripts/model_tunnel.py 管理隧道",
+        ),
+        ProviderEntry(
+            id="aliyun_model_deploy",
+            operator="阿里云百炼·模型部署",
+            type=TYPE_MODEL_DEPLOYMENT,
+            base_url="https://<deployment-id>.<region>.aliyuncs.com/compatible-mode/v1",
+            api_key_env="ALIYUN_DEPLOY_API_KEY",
+            models=[],
+            enabled=False,
+            supports_logprobs=True,
+            note="阿里云百炼模型部署专用端点（见帮助文档），地址按部署实例替换",
+        ),
+        ProviderEntry(
+            id="scnet_model_deploy",
+            operator="scnet.cn 超算·模型部署",
+            type=TYPE_MODEL_DEPLOYMENT,
+            base_url="https://<scnet-endpoint>/v1",
+            api_key_env="SCNET_DEPLOY_API_KEY",
+            models=[],
+            enabled=False,
+            supports_logprobs=True,
+            note="scnet.cn 超算 model-deploy 专用端点，地址与 key 按平台分配填写",
+        ),
     ]
 
 
@@ -212,7 +272,7 @@ PRESET_IDS = tuple(e.id for e in PRESETS)
 
 
 def default_registry() -> ProviderRegistry:
-    """出厂注册表：7 个预置运营商 + 角色槽默认 DeepSeek。"""
+    """出厂注册表：10 个预置运营商 + 角色槽默认 DeepSeek。"""
     return ProviderRegistry(
         providers=copy.deepcopy(PRESETS),
         annotation_provider=DEFAULT_ANNOTATION_PROVIDER,
@@ -302,6 +362,13 @@ def validate(registry: ProviderRegistry) -> List[str]:
                 errors.append(f"'{entry.id}' 已启用但 base_url 为空")
             if not entry.api_key_env:
                 errors.append(f"'{entry.id}' 已启用但 api_key_env 为空")
+            if entry.type == TYPE_SSH_TUNNEL:
+                if not entry.ssh_host:
+                    errors.append(f"'{entry.id}' 已启用（ssh_tunnel）但 ssh_host 为空")
+                if not entry.ssh_user:
+                    errors.append(f"'{entry.id}' 已启用（ssh_tunnel）但 ssh_user 为空")
+                if not entry.local_port:
+                    errors.append(f"'{entry.id}' 已启用（ssh_tunnel）但 local_port 未填写")
     for role, slot in (
         (ROLE_ANNOTATION, registry.annotation_provider),
         (ROLE_DECISION, registry.decision_provider),
@@ -325,9 +392,15 @@ def validate(registry: ProviderRegistry) -> List[str]:
 
 
 def provider_name_for(entry: ProviderEntry) -> str:
-    """entry → llm_providers.PROVIDER_REGISTRY 可解析的 provider 名。"""
+    """entry → llm_providers.PROVIDER_REGISTRY 可解析的 provider 名。
+
+    ssh_tunnel / model_deployment 在 HTTP 层面都按 openai_compatible 驱动
+    （type 区分仅供隧道生命周期管理与 UI 分组），jev_legacy 走专属构造器。
+    """
     if entry.type == TYPE_JEV_LEGACY:
         return TYPE_JEV_LEGACY
+    if entry.type in (TYPE_SSH_TUNNEL, TYPE_MODEL_DEPLOYMENT):
+        return TYPE_OPENAI_COMPATIBLE
     if entry.id in _VENDOR_PROVIDER_IDS:
         return entry.id
     return TYPE_OPENAI_COMPATIBLE
@@ -344,6 +417,8 @@ def build_provider_config(
 
     api_key 从 os.environ[entry.api_key_env] 现取，缺省 None（不落盘、不回读文件）。
     decision 角色额外标注 requires_logprobs=True。
+    ssh_tunnel / model_deployment 附 transport 标记（"ssh_tunnel" / "direct"）
+    供消费方参考——HTTP 调用本身均按 openai_compatible 路径发起。
     """
     if role is None:
         role = ROLE_DECISION if entry.type == TYPE_OPENAI_COMPATIBLE_DECISION else ROLE_ANNOTATION
@@ -358,6 +433,10 @@ def build_provider_config(
         "supports_logprobs": entry.supports_logprobs,
         "api_key_env": entry.api_key_env,
     }
+    if entry.type == TYPE_SSH_TUNNEL:
+        config["transport"] = "ssh_tunnel"
+    elif entry.type == TYPE_MODEL_DEPLOYMENT:
+        config["transport"] = "direct"
     if role == ROLE_DECISION:
         config["requires_logprobs"] = True
     return config
@@ -583,6 +662,8 @@ __all__ = [
     "TYPE_OPENAI_COMPATIBLE",
     "TYPE_OPENAI_COMPATIBLE_DECISION",
     "TYPE_JEV_LEGACY",
+    "TYPE_SSH_TUNNEL",
+    "TYPE_MODEL_DEPLOYMENT",
     "DECISION_PROFILE_NAME",
     "DEFAULT_ANNOTATION_PROVIDER",
     "DEFAULT_DECISION_PROVIDER",
