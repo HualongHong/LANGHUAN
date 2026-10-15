@@ -706,4 +706,44 @@ API key；运行中加 `--resume` 会把游标和已收 ID 持久化在 `<workdi
 
 ---
 
+## 19. 人工标注复核页
+
+当需要人工产出 gold 标准集（校验 AI 抽取可靠性、或给 `evaluate_schema.py` 提供
+`--gold`）时，用 `scripts/manual_label.py` 生成一个**单文件 HTML 标注页**
+（内联 CSS/JS、零外部 CDN、离线双击可用）：
+
+```bash
+python scripts/manual_label.py \
+    --records output/extracted.jsonl \        # JSONL 或 CSV，自动识别 title/AB/abstract 等列名变体
+    --schema lit_scout_harvester/schemas/sample_rst.json \
+    --option-set output/option_set/sampleType.json \  # 可传多份，每份对应一个字段
+    --pred output/extracted.jsonl \           # 可选：AI 预测，进入 AI 核对模式
+    --output label_page.html --limit 100      # --limit 抽样前 N 条
+```
+
+控件按字段类型自适应：字段命中 option_set 走**单选/多选选择题**（multiLabel 字段
+限选 modeN 或 max_items，带计数器）；布尔/判断语义字段走**判断题**；开放
+`list[str]` 字段走**多值标签输入**（回车逐条添加）；其余标量走单行文本。
+guidelines 渲染为折叠提示，examples 是可点击填入的 Chips。
+
+页面操作：左侧记录列表带状态点（未标/部分完成/完成）与 n/total 进度；标注态按
+内容哈希存 localStorage，**刷新自动续标**；「导出 gold JSONL」下载
+`gold.jsonl`（record_id + 各字段值，list 字段一律数组，未标字段空数组并提示
+未完成条数）；「导出进度备份」可把标注态交给他人或跨机续标。传 `--pred` 时为
+**AI 核对模式**：控件预填 AI 预测，人工改后与 AI 不同的字段亮「与 AI 不同」角标。
+
+验证闭环（gold 集跑四列评估报告）：
+
+```bash
+python scripts/evaluate_schema.py --gold gold.jsonl --pred <AI输出.jsonl> \
+    --fields a,b,c --list-fields a,b,c
+```
+
+`majority_baseline` = 全猜多数类的基准，`model_accuracy` = 模型实际得分，
+`net_gain` = 两者之差（百分点），`verdict` = 逐字段建议
+（`use_model` 用模型 / `weak` 勉强 / `use_rules` 退回规则 / `manual` 人工）——
+一句话：**net_gain 为正且过阈值的字段才交给模型，否则按 verdict 降级**。
+
+---
+
 **祝使用顺利！** 如在正式数据集上遇到 schema 效果不理想的情况，可回到 `scripts/tune_schema.py` 继续迭代。
