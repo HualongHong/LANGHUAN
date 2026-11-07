@@ -93,7 +93,7 @@ dsh --profile langhuan --from-default-profile web --dump-config >/dev/null
 #    直接 pnpm add 文件夹 = link: 安装，插件以仓库路径为 realpath 运行；
 #    想要宿主 schemastery 的 canonical schema 时改用 tarball（见备注）。
 cd ~/.dsh/profiles/langhuan
-pnpm add D:/opt/dev/LangHuan/dsh-plugin
+pnpm add <LANGHUAN_REPO>/dsh-plugin   # <LANGHUAN_REPO> = LangHuan 仓库路径，如 D:/opt/dev/LangHuan 或 ~/opt/dev/LangHuan
 
 # 3. cordis.patch.yml 用 - insert: 追加花名册行（普通 - id: 行只能改已存在的条目）
 cat >> cordis.patch.yml <<'EOF'

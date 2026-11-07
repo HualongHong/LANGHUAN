@@ -18,9 +18,10 @@
 ### 2. 安装插件包
 
 ```bash
-# Git Bash 中执行；路径换成你的 LangHuan 仓库实际位置
+# Git Bash 中执行；<LANGHUAN_REPO> 换成你的 LangHuan 仓库实际路径
+# （本机示例：D:/opt/dev/LangHuan；Ubuntu 示例：~/opt/dev/LangHuan）
 cd ~/.dsh/profiles/desktop
-pnpm add D:/opt/dev/LangHuan/dsh-plugin
+pnpm add <LANGHUAN_REPO>/dsh-plugin
 ```
 
 （若日后插件发布到 npm，此步等价于 `pnpm add @langhuan/dsh-plugin`——
