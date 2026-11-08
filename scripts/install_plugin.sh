@@ -121,6 +121,7 @@ cmd_install() {
     log "已创建统一配置: $central（填入 API key 后生效）"
   fi
   propagate_env
+  reconcile_card_env "$TARGET"
 
   cat <<EOF
 
@@ -131,7 +132,23 @@ cmd_install() {
 EOF
 }
 
-cmd_sync_env() { propagate_env; }
+# 卡片 ↔ 中央 env 一致性核对（best-effort；python 缺失或 providers.json 尚未生成时跳过）
+reconcile_card_env() {
+  local target="$1"
+  local py=""
+  for cand in python python3 py; do
+    command -v "$cand" >/dev/null 2>&1 && { py="$cand"; break; }
+  done
+  [[ -n "$py" ]] || { log "跳过卡片↔env 核对（未找到 python）"; return 0; }
+  local providers="$target/${SKILL_PREFIX}lit-scout-harvester/config/providers.json"
+  local central="$target/$SUITE_ENV"
+  [[ -f "$providers" ]] || { log "跳过卡片↔env 核对（$providers 尚未生成，DSH 插件 boot 同步后可用）"; return 0; }
+  "$py" "$ROOT/scripts/sync_card_env.py" --providers "$providers" --env "$central" \
+    && log "卡片 ↔ $SUITE_ENV 一致" \
+    || log "卡片 ↔ $SUITE_ENV 存在需关注项（见上方输出；WARN 不阻断安装）"
+}
+
+cmd_sync_env() { propagate_env; reconcile_card_env "$TARGET"; }
 
 case "$CMD" in
   install)  cmd_install ;;
