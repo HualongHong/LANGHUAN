@@ -35,6 +35,10 @@ invariants:
     rule: .env 不入库（gitignore 生效），且 git 跟踪文件中不得出现真实密钥形状的赋值（AGENTKIT_* / *_API_KEY 后跟 sk-长串或 30+ 位裸 token；文档占位符如 sk-xxx、your-... 不算）。
     check: "git check-ignore -q .env && test -z \"$(git grep -Il -E \"(AGENTKIT_[A-Z0-9_]*(KEY|TOKEN|SECRET)|[A-Z0-9_]+_API_KEY)=[\\\"']?(sk-[A-Za-z0-9]{15,}[0-9][A-Za-z0-9]{15,}|[A-Za-z0-9]{30,})\" -- . ':!*.example' 2>/dev/null)\""
 
+  - id: dist-no-env
+    rule: 分发渠道不得含真实密钥：dist/ 下所有 skill zip 不得含纯 .env 条目（.env.example 占位模板除外）或疑似真实密钥片段（2026-11-08 用户拍板：.env 内容仅调试用，分发版不提供；agentkit.packaging DEFAULT_IGNORE_NAMES 已有 .env 硬排除，本条为发布前可重复核验的门禁）。
+    check: "python scripts/check_dist_secrets.py >/dev/null 2>&1 || python3 scripts/check_dist_secrets.py >/dev/null 2>&1"
+
   - id: suite-yaml-sync
     rule: suite.yaml 声明的每个成员目录必须存在且含 SKILL.md（suite.yaml 是构建唯一事实来源，成员不得悬空）。
     check: "grep -q 'path: skills/' suite.yaml && grep -oE 'path: skills/[A-Za-z0-9._/-]+' suite.yaml | awk '{print $2}' | while read -r d; do test -d \"$d\" && test -f \"$d/SKILL.md\" || exit 1; done"
