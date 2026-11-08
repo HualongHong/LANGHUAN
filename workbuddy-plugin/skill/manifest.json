@@ -1,0 +1,21 @@
+{
+  "id": "langhuan-provider-sync",
+  "name": "LangHuan Provider-Sync（WorkBuddy 模型供应商同步）",
+  "version": "0.1.0",
+  "description": "把 LangHuan 中央运营商注册表（providers.json + langhuan.env）中启用的 OpenAI 兼容供应商，展开为 WorkBuddy 自定义模型条目合并写入 models.json（双路径探测、.bak 备份、原子写、幂等）。注意：WorkBuddy 仅支持 apiKey 明文存储，models.json 不得分发。",
+  "author": "LangHuan Suite",
+  "type": "skill",
+  "triggers": [
+    "同步 LangHuan 运营商到 WorkBuddy",
+    "更新 WorkBuddy 自定义模型列表",
+    "轮换 API key 后重跑 WorkBuddy 同步",
+    "WorkBuddy 里 langhuan-* 模型不见了"
+  ],
+  "tags": [
+    "langhuan",
+    "workbuddy",
+    "model-providers",
+    "sync"
+  ],
+  "license": "MIT"
+}

@@ -61,9 +61,47 @@ vim ~/.agents/skills/langhuan.env
 
 key 管理是**单入口**的：中央文件 `~/.agents/skills/langhuan.env` 经**硬链接**分发给各 `langhuan-*/.env`——改中央文件即实时改全部，无需同步操作；若硬链接失效（跨卷/文件被复制），跑一次 `bash scripts/install_plugin.sh sync-env` 重建。不填 key 也能运行：技能自动走 agent_bridge 零 key 模式（模型调用由宿主 Agent 完成）。
 
-### 方式二补充：DSH 插件形态
+### 方式二补充：宿主插件形态（设置卡片 / 配置同步）
 
-除技能形态外，LangHuan 还以 **DSH（DeepSeek Harness）原生插件**形态接入宿主：[`dsh-plugin/`](dsh-plugin/README.zh.md)（`@langhuan/dsh-plugin`）把模型运营商注册表、标注/决策角色槽与密钥环境变量名纳入 DSH 的设置体系，由 DSH 插件配置统一驱动，并自动落盘为 lit-scout-harvester 的 `providers.json`。技能形态管「怎么干活」，DSH 插件形态管「用哪个模型入口、key 叫什么名字」；两者经 `providers.json` + 中央 `langhuan.env` 只读耦合，互不依赖。DSH Desktop 用户的接入步骤见 [`dsh-plugin/INSTALL.zh.md`](dsh-plugin/INSTALL.zh.md)。
+除技能形态外，LangHuan 还以各宿主的**原生插件形态**接入，把模型运营商注册表、标注/决策角色槽与密钥环境变量名纳入宿主的设置体系，统一落盘为 lit-scout-harvester 的 `providers.json`。技能形态管「怎么干活」，宿主插件形态管「用哪个模型入口、key 叫什么名字」；两者经 `providers.json` + 中央 `langhuan.env` 只读耦合，互不依赖。
+
+共享核心为 [`plugin-core/`](plugin-core/)（`@langhuan/plugin-core`：10 家运营商预置 + 配置解析校验 + providers.json 原子落盘，宿主无关、零依赖）。
+
+#### DSH（DeepSeek Harness）—— 原生设置卡片
+
+[`dsh-plugin/`](dsh-plugin/README.zh.md)（`@langhuan/dsh-plugin`）：schemastery Config + 图形设置卡片（0.1.x/0.2.x 双版本探测）。接入步骤见 [`dsh-plugin/INSTALL.zh.md`](dsh-plugin/INSTALL.zh.md)。
+
+#### TRAE —— VS Code 扩展设置卡片
+
+[`trae-plugin/`](trae-plugin/README.zh.md)：标准 VS Code 扩展（纯 JS 无构建），`contributes.configuration` 在 TRAE 设置里生成 LangHuan 配置区（标注/决策角色下拉 + 进阶覆盖），变更自动同步 providers.json。
+
+```bash
+cd trae-plugin && npx @vscode/vsce package     # 打出 langhuan-provider-card-0.1.0.vsix
+# TRAE: Ctrl+Shift+P → Extensions: Install from VSIX… → 选该文件
+# 设置里搜 "LangHuan" 即见配置卡片；详见 trae-plugin/INSTALL.zh.md
+```
+
+#### Kimi Code —— 插件 + config.toml 同步
+
+[`kimi-plugin/`](kimi-plugin/README.zh.md)：Kimi Code 插件（`kimi.plugin.json` + 字段手册 Skill + 斜杠命令），配套同步脚本把卡片配置翻译为 `~/.kimi-code/config.toml` 的 `[providers.*]`（`api_key_env` 语义与卡片一致，Kimi watch 热更新）。
+
+```bash
+# Kimi Code 会话内：
+/plugins install D:/opt/dev/LangHuan/kimi-plugin
+# 然后（会话内或 shell）跑一次同步：
+python kimi-plugin/scripts/sync_kimi_providers.py        # --dry-run 先预览
+```
+
+#### WorkBuddy —— models.json 同步脚本
+
+[`workbuddy-plugin/`](workbuddy-plugin/README.zh.md)：WorkBuddy 无第三方设置卡片 API，用同步脚本把启用的运营商注入 `models.json`（⚠️ 该宿主只支持 key 明文存储，脚本会显著标注这一红线偏离，请勿分发 models.json）。
+
+```bash
+python workbuddy-plugin/scripts/sync_workbuddy_models.py --dry-run   # 预览
+python workbuddy-plugin/scripts/sync_workbuddy_models.py             # 实跑后完全退出并重启 WorkBuddy
+```
+
+各宿主的契约调研笔记见 `docs/research/{trae,workbuddy,kimi}-plugin-contract.md`。
 
 ### 方式二：从源码构建
 
@@ -74,7 +112,7 @@ python build_plugin.py freeze --version 0.1.0     # 冻结：MANIFEST.sha256 + F
 python build_plugin.py verify                     # 零回归比对
 ```
 
-运行基线：Python **>= 3.14**（LSH 过渡期测试暂用 3.12 venv）。
+运行基线：Python **>= 3.14**（四个技能 venv 统一 3.14.7，见 AGENTS.md）。
 
 ## 使用
 
@@ -90,9 +128,9 @@ LSH 另提供非交互入口 `scripts/agent_run.py`（collect/apply 两段式，
 ## 开发
 
 ```bash
-# 测试（LSH 用已安装技能 venv，agentkit 用任意 3.14 venv）
-cd skills/lit-scout-harvester && PYTHONPATH=../../libs python -B -m pytest tests -q   # 381 tests
-PYTHONPATH=libs python -B -m pytest libs/agentkit/tests -q                            # 80 tests
+# 测试（用各技能自己的 3.14 venv，PYTHONPATH 带 libs/agentkit；基线见 suite.yaml test_baseline）
+cd skills/lit-scout-harvester && PYTHONPATH=".;../../libs" ./.venv/Scripts/python.exe -B -m pytest tests -q   # 450 tests
+cd skills/archive-plate-assembler && PYTHONPATH=".;../../libs" ./.venv/Scripts/python.exe -B -m pytest tests -q   # 160 tests
 ```
 
 ```

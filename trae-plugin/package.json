@@ -1,0 +1,115 @@
+{
+  "name": "langhuan-provider-card",
+  "displayName": "LangHuan 模型运营商配置",
+  "description": "LangHuan 套件 TRAE/VS Code 插件：在设置卡片里统一配置模型运营商、标注/决策角色与密钥环境变量名，同步落盘为 langhuan-lit-scout-harvester 的 providers.json。",
+  "version": "0.1.0",
+  "publisher": "langhuan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HualongHong/LANGHUAN.git",
+    "directory": "trae-plugin"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "LangHuan",
+      "properties": {
+        "langhuan.annotationProvider": {
+          "type": "string",
+          "enum": [
+            "",
+            "deepseek",
+            "minimax",
+            "qwen",
+            "tencent",
+            "jev_original",
+            "shanghai_sc_llm",
+            "shanghai_sc_jev",
+            "ssh_selfhost",
+            "aliyun_model_deploy",
+            "scnet_model_deploy"
+          ],
+          "enumDescriptions": [
+            "（未配置）",
+            "DeepSeek（默认，logprobs 已验证）",
+            "MiniMax",
+            "阿里云百炼",
+            "腾讯混元（reserved）",
+            "JEV 原厂（reserved）",
+            "上海超算云平台·LLM",
+            "上海超算·类JEV决策模型",
+            "自建服务器（SSH 隧道）",
+            "阿里云百炼·模型部署",
+            "scnet.cn 超算·模型部署"
+          ],
+          "default": "deepseek",
+          "description": "标注角色 provider id"
+        },
+        "langhuan.decisionProvider": {
+          "type": "string",
+          "enum": [
+            "",
+            "deepseek",
+            "minimax",
+            "qwen",
+            "tencent",
+            "jev_original",
+            "shanghai_sc_llm",
+            "shanghai_sc_jev",
+            "ssh_selfhost",
+            "aliyun_model_deploy",
+            "scnet_model_deploy"
+          ],
+          "enumDescriptions": [
+            "（未配置）",
+            "DeepSeek（默认，logprobs 已验证）",
+            "MiniMax",
+            "阿里云百炼",
+            "腾讯混元（reserved）",
+            "JEV 原厂（reserved）",
+            "上海超算云平台·LLM",
+            "上海超算·类JEV决策模型",
+            "自建服务器（SSH 隧道）",
+            "阿里云百炼·模型部署",
+            "scnet.cn 超算·模型部署"
+          ],
+          "default": "deepseek",
+          "description": "决策角色 provider id（阶段 B 概率输出需 supportsLogprobs）"
+        },
+        "langhuan.skillsDir": {
+          "type": "string",
+          "default": "~/.agents/skills",
+          "description": "LangHuan 技能安装目录（providers.json 落盘目标相对于此目录，支持 ~ 展开）"
+        },
+        "langhuan.providers": {
+          "type": "object",
+          "default": {},
+          "description": "按 provider id 覆盖出厂预置的字段（进阶，settings.json 里编辑）"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@langhuan/plugin-core": "file:../plugin-core"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "langhuan",
+    "trae",
+    "vscode",
+    "providers",
+    "llm"
+  ]
+}
