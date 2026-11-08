@@ -44,8 +44,10 @@ Plugin Builder 会识别 `.claude-plugin/plugin.json`（已内置同源副本）
 转换为 `kimi.plugin.json` 并登记进「插件 → 个人」页签。之后在 Kimi Work 会话里即可调用本插件
 的技能与命令；同步脚本在 Work 桌面端同样可用（standalone Python）。
 
-> 未证实项：Plugin Builder 对本地目录的直接摄取未经实测（文档确认支持仓库/zip 四种源格式）；
-> 若目录直选不被接受，把 `kimi-plugin/` 打成 zip 再喂给 Plugin Builder。
+> 2026-11-08 安装反馈已修复：manifest 的 `skills`/`commands` 改用 `"./"` 开头的规范相对路径
+> （Kimi 插件规范硬性要求，裸名字会被转换器误判"组件缺失"丢弃），并补了 LICENSE——
+> 现在转换可**零修复直接通过**。国内网络下 git clone 超时属环境问题，转换器会自动
+> 回退 codeload tarball，无需干预。
 
 ### Kimi Code CLI（次要路径）
 

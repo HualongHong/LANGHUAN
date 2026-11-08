@@ -1,4 +1,5 @@
 ---
+name: set-provider
 description: 把 LangHuan 运营商注册表同步进 Kimi Code config.toml（或按卡片字段手工编辑）。
 ---
 

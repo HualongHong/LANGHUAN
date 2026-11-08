@@ -1,4 +1,5 @@
 ---
+name: show-provider
 description: 展示当前 config.toml 中 LangHuan 管理的 providers/models 块与同步状态。
 ---
 

@@ -81,13 +81,17 @@ cd trae-plugin && npx @vscode/vsce package     # 打出 langhuan-provider-card-0
 # 设置里搜 "LangHuan" 即见配置卡片；详见 trae-plugin/INSTALL.zh.md
 ```
 
+另有 **Agent 插件形态**（5 个技能直接进 Trae Agent，`trae-user-upload` 个人插件）：
+`python scripts/build_host_plugin.py --host trae` 后按 [`trae-plugin/agent-plugin-INSTALL.zh.md`](trae-plugin/agent-plugin-INSTALL.zh.md) 部署。
+
 #### Kimi Work 桌面端 —— 插件 + 供应商配置同步
 
 [`kimi-plugin/`](kimi-plugin/README.zh.md)：Kimi 插件（`kimi.plugin.json` + 字段手册 Skill + 命令；经 **Plugin Builder** 登记为 Kimi Work 个人插件，Kimi Code CLI 也可直接 `/plugins install`），配套同步脚本把卡片配置翻译为供应商配置（`api_key_env` 语义与卡片一致）。
 
 ```bash
 # Kimi Work：插件中心 → Plugin Builder → 创建个人插件 → 选 D:/opt/dev/LangHuan/kimi-plugin
-# （仓库已内置 .claude-plugin/plugin.json 源清单供摄取；也可打 zip 再喂）
+# （kimi-plugin/.claude-plugin/plugin.json 源清单已按 Kimi "./" 路径规范修复，转换零修复通过；
+#  也可把 kimi-plugin/ 打 zip 再喂，或直接把 GitHub 仓库链接发给 Plugin Builder 并说明"只转 kimi-plugin 子目录"）
 # Kimi Code CLI 备选：/plugins install D:/opt/dev/LangHuan/kimi-plugin
 # 同步脚本（两宿主通用）：
 python kimi-plugin/scripts/sync_kimi_providers.py        # --dry-run 先预览
@@ -95,7 +99,7 @@ python kimi-plugin/scripts/sync_kimi_providers.py        # --dry-run 先预览
 
 #### WorkBuddy —— models.json 同步脚本
 
-[`workbuddy-plugin/`](workbuddy-plugin/README.zh.md)：WorkBuddy 无第三方设置卡片 API，用同步脚本把启用的运营商注入 `models.json`（⚠️ 该宿主只支持 key 明文存储，脚本会显著标注这一红线偏离，请勿分发 models.json）。
+[`workbuddy-plugin/`](workbuddy-plugin/README.zh.md)：WorkBuddy 无第三方设置卡片 API，用同步脚本把启用的运营商注入 `models.json`（⚠️ 该宿主只支持 key 明文存储，脚本会显著标注这一红线偏离，请勿分发 models.json）。除 models.json 同步外，还可用**个人插件市场**形态一次装入全部 6 个技能（`python scripts/build_host_plugin.py --host workbuddy` → 官方 CLI `plugin marketplace add` + `plugin install --scope user`，详见 [`workbuddy-plugin/INSTALL.zh.md`](workbuddy-plugin/INSTALL.zh.md)，内含 CLI 配置目录/端口两个坑的解法）。
 
 ```bash
 python workbuddy-plugin/scripts/sync_workbuddy_models.py --dry-run   # 预览
@@ -111,9 +115,27 @@ git clone git@github.com:HualongHong/LANGHUAN.git && cd LANGHUAN
 python build_plugin.py build                      # 按 suite.yaml 构建全部技能 zip 到 dist/
 python build_plugin.py freeze --version 0.1.0     # 冻结：MANIFEST.sha256 + FROZEN.md
 python build_plugin.py verify                     # 零回归比对
+python scripts/build_host_plugin.py               # 构建 WorkBuddy/Trae 宿主插件包到 dist/
 ```
 
 运行基线：Python **>= 3.14**（四个技能 venv 统一 3.14.7，见 AGENTS.md）。
+
+### 技能形态 vs 插件形态（避免重复命中）
+
+同一技能可能以两种形态同时存在于一个宿主：
+
+| 形态 | 安装方式 | 出现位置 |
+|---|---|---|
+| 技能形态 | `scripts/install_plugin.sh` → `~/.agents/skills/langhuan-*` | 所有读该目录的宿主（DSH、Kimi Code…） |
+| 插件形态 | 各宿主个人插件（上文 Trae/WorkBuddy/Kimi Work 三节） | 仅该宿主 |
+
+两者并存时触发词会**重复命中**（2026-11-08 三端实装均遇到）。取舍原则：
+
+- 某宿主若已装插件形态，就在该宿主停用技能形态那份（Trae 可列入
+  `skill-config.json` 的 `disabledSkills`；WorkBuddy 在插件/技能页开关）；
+- **绝不要删除** `~/.agents/skills/langhuan-lit-scout-harvester/`——中央
+  `langhuan.env` 与各技能 `.env` 的硬链接、`config/providers.json` 都在这棵树里，
+  删了所有宿主的 key 通道一起断（可用 `install_plugin.sh` 的 `sync-env` 修复，但没必要走这一遭）。
 
 ## 使用
 

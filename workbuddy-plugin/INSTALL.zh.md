@@ -66,12 +66,68 @@ python workbuddy-plugin/scripts/sync_workbuddy_models.py
 2. 打开 models.json 核对条目存在且 JSON 合法；
 3. 换 `--models` 指定实际路径重跑一次。
 
+## 可选：以「个人插件」形态安装（推荐，含全部 6 个技能）
+
+除上面的 models.json 同步外，套件还正式提供 WorkBuddy **个人插件市场**形态：
+一次安装获得 5 个成员技能 + `langhuan-provider-sync` 宿主技能
+（插件包由 `scripts/build_host_plugin.py` 构建，清单 schema 已经实机验证）。
+
+### 1. 构建插件市场包
+
+```bash
+python scripts/build_host_plugin.py --host workbuddy   # → dist/workbuddy-marketplace/
+```
+
+### 2. 用官方 CLI 登记并安装
+
+CLI 随 WorkBuddy 桌面端安装（`resources/app.asar.unpacked/cli/bin/codebuddy`，
+未注册进 PATH，需 node）。**两个环境变量坑**（2026-11-08 实装反馈）：
+
+- CLI 默认配置目录是 `~/.codebuddy`，桌面端读的是 `~/.workbuddy`——
+  必须用 `CODEBUDDY_CONFIG_DIR` + `WORKBUDDY_CONFIG_DIR` 同时指过去，否则
+  登记写进错误的注册表，桌面端看不到；
+- 若当前 shell 注入了 `SERVER__PORT`（桌面端守护进程占用中），CLI 子命令会
+  `EADDRINUSE` 崩掉——用 `env -u SERVER__PORT` 取消后再执行。
+
+```bash
+CLI="D:/Users/hongh/AppData/Local/Programs/WorkBuddy/resources/app.asar.unpacked/cli/bin/codebuddy"
+RUN=(env -u SERVER__PORT \
+     CODEBUDDY_CONFIG_DIR='C:\Users\hongh\.workbuddy' \
+     WORKBUDDY_CONFIG_DIR='C:\Users\hongh\.workbuddy')
+"${RUN[@]}" node "$CLI" plugin validate "$PWD/dist/workbuddy-marketplace"
+"${RUN[@]}" node "$CLI" plugin marketplace add "$PWD/dist/workbuddy-marketplace" --name langhuan-personal
+"${RUN[@]}" node "$CLI" plugin install langhuan-suite@langhuan-personal --scope user
+```
+
+### 3. 重启并在插件页确认启用
+
+**完全退出** WorkBuddy（托盘右键退出）后重启 → 左侧「插件」→「已安装」→
+找到 LangHuan 确认启用。注意（实装反馈）：`plugin install` 只写
+`installed_plugins.json`，不一定自动补 `settings.json → enabledPlugins`；
+若插件列表里没有本插件，点一下启用即可。**不要在 WorkBuddy 运行时直接
+改写 settings.json**——桌面端有文件保护，原子替换会被 `WinError 5` 拒绝。
+
+插件内技能在**新会话**才会进技能索引（安装前启动的会话看不到），可试
+触发词「解析 WOS 题录」「同步 LangHuan 运营商到 WorkBuddy」。
+
+### 4. 卸载
+
+```bash
+"${RUN[@]}" node "$CLI" plugin uninstall langhuan-suite@langhuan-personal
+"${RUN[@]}" node "$CLI" plugin marketplace remove langhuan-personal
+```
+
+> 若 `~/.workbuddy/skills/langhuan-*` 还存在此前技能形态安装的同名技能，
+> 两者会重复命中触发词——在宿主 UI 里停用其中一份即可，不要两边都删
+> （中央 langhuan.env / providers.json 的硬链接在技能目录树内）。
+
 ## 可选：安装技能包
 
 把 `workbuddy-plugin/skill/` 打成 zip（`SKILL.md` + `manifest.json` 在包
 根）经 WorkBuddy 技能市场上传安装，可在 WorkBuddy 内直接唤起
 "同步 LangHuan 运营商到 WorkBuddy" 等触发词。技能包只含方法论与脚本
-路径说明，不含 key。
+路径说明，不含 key。若已按上一节安装个人插件，则无需再装此技能包
+（插件内已含 `langhuan-provider-sync`）。
 
 ## 排错
 
