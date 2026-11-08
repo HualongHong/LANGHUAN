@@ -23,6 +23,7 @@ MEMBERS=(
   "archive-plate-assembler"
   "anchor-verify-strategizer"
   "peer-collab-strategizer"
+  "percolation-scout"
 )
 
 log()  { printf '[LangHuan] %s\n' "$*"; }

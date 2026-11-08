@@ -56,6 +56,7 @@ license: MIT
   - `import-verdicts <报告.md> <裁决.json>` — 回导裁决（dry-run 默认，`--apply` 写回 VETO/核验等级）
   - `selfcheck [--iid ORCID]` — ORCID 公共 API 连通性自检（免 key，需网络）
 - **四阶段主流程**：Phase 1-3 检索由宿主 Agent 按 `prompts/` 执行（DeepSeek API 无联网，ORCID/OpenAlex 等公开接口检索依赖宿主 WebSearch/FetchURL；ResearchGate 仅人工核验，不做自动化抓取）；Phase 4 合成走 `synthesize` 子命令。凭据：技能根 `.env`（`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL`）。
+- **Phase 3 出口门禁（2026-11-08 接入 langhuan-percolation-scout）**：生态位扫描进入 Phase 4 前，须用 percolation-scout 的覆盖率门禁判定探索是否"渗流饱和"——覆盖率未达标/盲区登记不完整时，禁止输出"无合作通路"类结论（那是采样假象）；其桥接候选清单（SD- 编号）可直接喂 Phase 4 合成。详见 langhuan-percolation-scout 的 `methodology/explore-bridge-workflow.md` §4。
 
 ## 安装
 

@@ -47,6 +47,13 @@ members:
     skill_manifest: SKILL.md
     test_baseline: "lint_report 0 ERROR / 0 WARN（试跑报告）"
 
+  - name: percolation-scout
+    path: skills/percolation-scout
+    version: "0.1.0"
+    status: in-development                 # MVP：两阶段方法论 + 覆盖率门禁脚本
+    kind: content-skill                  # 渗流探索纪律；吃 LSH 题录产出，为 AVS/PCS Phase 3 提供出口门禁
+    skill_manifest: SKILL.md
+
 build:
   output_dir: dist
   per_skill_zip: true

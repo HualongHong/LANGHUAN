@@ -1,0 +1,1 @@
+# Percolation-Scout 运行依赖：无（coverage_report.py 纯标准库，Python ≥ 3.12）
