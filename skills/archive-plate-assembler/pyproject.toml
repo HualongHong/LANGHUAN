@@ -24,6 +24,9 @@ dependencies = [
     "python-dotenv>=1.0",
     # 人工校验界面（M4a）
     "streamlit>=1.59",
+    "streamlit-image-annotation>=0.8",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
 ]
 
 [tool.setuptools.packages.find]

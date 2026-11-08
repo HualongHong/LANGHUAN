@@ -64,13 +64,30 @@ python -B scripts/agent_run.py --mode apply --input book.pdf --workdir ./apa_wor
   apply 后仍有 pending 时 `next_step` 会提示补答案重跑 apply
 - 产物默认落在 `<workdir>/output/<书名>_<时间戳>/`（即 JSON 中的 `job_dir`）
 
+## API 入口（M5，非 Agent 调用方）
+
+```bash
+python -m archive_plate_assembler.api_server        # 默认 127.0.0.1:8317（APA_API_PORT/API_HOST 可改）
+```
+
+- `POST /api/v1/jobs`：multipart 上传一个或多个 PDF + 可选 `source_book` /
+  `taxon_hint` / `page_range`（`起,止`）/ `verify`；返回 202 + `job_id`，管道在后台线程跑
+- `GET /api/v1/jobs/{job_id}`：`pending/running/succeeded/failed` + 摘要/错误
+- `GET /api/v1/jobs/{job_id}/species`：Schema 合规物种 JSON（成功后）
+- 作业目录 `output/api_jobs/<job_id>/`（状态落盘 `job_status.json`，服务重启可恢复）；
+  API 场景无人交互，版式固定走 `auto_layout=True`（要人工版式确认请用 CLI/Agent 入口）
+- 模型 key 仍走技能根 `.env`（角色 A=MiniMax、角色 B=Qwen）；缺 key 时作业以 failed 收场
+
 ## 人工复核（必需环节）
 
 ```bash
 APA_JOB_DIR=<job_dir> streamlit run archive_plate_assembler/review_ui/app.py
 ```
 
-并排对比原文与抽取结果、逐字段修改、裁决双模型分歧、多物种同图手动框选裁切。
+并排对比原文与抽取结果、逐字段修改、裁决双模型分歧；**框选裁切（M4b）**：
+在左侧「框选裁切」段选页面、拖矩形（标签「ROI」）、点「应用框选为条目图片」，
+裁切结果以 `images/<entry_id>_roi<N>.png` 落盘，保存后并入 corrected_species.json
+（依赖 streamlit-image-annotation，坐标已由组件换算为原生像素）。
 
 ## 注意事项
 

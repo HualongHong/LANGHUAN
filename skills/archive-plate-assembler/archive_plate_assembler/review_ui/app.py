@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import streamlit as st
+from PIL import Image
 
 from archive_plate_assembler.review_ui.store import (
     STATUS_CONFIRMED,
@@ -178,6 +179,51 @@ def _render_form(view, store: ReviewStore) -> None:
         st.rerun()
 
 
+def _render_roi_canvas(store: ReviewStore, entry_id: str, page_imgs: list[str]) -> None:
+    """M4b 框选裁切：在页面扫描图上拖矩形 → 裁为条目图片。
+
+    依赖 streamlit-image-annotation（Detection 模式）：组件返回的 bbox 已是
+    图像原生像素 [xmin, ymin, xmax, ymax]，无需画布缩放换算。缺装时提示降级，
+    不影响其余复核功能。裁切语义（越界收拢/退化框过滤/落盘命名）在 roi_tool，
+    可单测。
+    """
+    try:
+        from streamlit_image_annotation import detection
+    except ImportError:
+        st.info("框选裁切（M4b）需安装 streamlit-image-annotation：pip install streamlit-image-annotation")
+        return
+
+    from archive_plate_assembler.review_ui.roi_tool import apply_rois
+
+    st.subheader("框选裁切（多物种同图分割 / 抠图兜底）")
+    page_path = st.selectbox("框选页面", page_imgs, format_func=lambda p: Path(p).name,
+                             key=f"roi_page_{entry_id}")
+    st.caption("在图上拖出矩形并选标签「ROI」；点组件内保存按钮后回显，再点下方按钮应用。")
+    result = detection(
+        page_path,
+        label_list=["ROI"],
+        bboxes=None,
+        labels=None,
+        height=560,
+        width=720,
+        key=f"roi_canvas_{entry_id}_{Path(page_path).name}",
+    )
+    if st.button("应用框选为条目图片", use_container_width=True,
+                 key=f"roi_apply_{entry_id}"):
+        boxes = []
+        for item in (result or []):
+            if item.get("label") != "ROI":
+                continue
+            x0, y0, x1, y1 = item["bbox"]
+            boxes.append((round(x0), round(y0), round(x1 - x0), round(y1 - y0)))
+        added = apply_rois(store, entry_id, page_path, boxes)
+        if added:
+            st.success(f"已新增 {len(added)} 张裁切图；点左侧「保存」写入 corrected_species.json")
+            st.rerun()
+        else:
+            st.warning("没有有效框：请在图上拖出矩形（宽/高不小于 3px）并保存")
+
+
 def main() -> None:
     st.set_page_config(page_title="APA 人工复核", layout="wide")
     job_dir = _get_job_dir()
@@ -255,6 +301,7 @@ def main() -> None:
         if page_imgs:
             for col, path in zip(st.columns(len(page_imgs)), page_imgs):
                 col.image(path, caption=Path(path).name, use_container_width=True)
+            _render_roi_canvas(store, view.entry_id, page_imgs)
         else:
             st.info("无页面扫描图")
         st.subheader("处理后图片")

@@ -197,6 +197,19 @@ class ReviewStore:
         self._log(entry_id, "confirm")
         self._save_state()
 
+    def add_images(self, entry_id: str, paths: list[str]) -> None:
+        """登记人工新增的图片文件（M4b 框选裁切）。
+
+        文件须已放入 <job_dir>/images/ 且命名为 <entry_id>_*.png——
+        save() 时 images 列表以文件为准重建，这里只置状态与日志。
+        """
+        view = self._views[entry_id]
+        view.status = STATUS_EDITED
+        if "images" not in view.edited_fields:
+            view.edited_fields.append("images")
+        self._log(entry_id, "add_images", files=[Path(p).name for p in paths])
+        self._save_state()
+
     # ------------------------------------------------------------------ 持久化
 
     def _save_state(self) -> None:

@@ -1,4 +1,5 @@
-"""API 层：POST /assemble。
+"""API 层（M5）：HTTP 封装六节点管道。见 app.py 模块 docstring。"""
 
-任务生命周期管理（版式确认/人工复核为异步等待态）、临时校验链接、调用日志。
-"""
+from .app import create_app
+
+__all__ = ["create_app"]

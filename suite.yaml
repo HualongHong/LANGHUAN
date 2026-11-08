@@ -25,11 +25,11 @@ members:
   - name: archive-plate-assembler
     path: skills/archive-plate-assembler   # 当前在仓库根 Archive-Plate-Assembler/
     version: "0.1.0-dev"
-    status: in-development               # M4a 完成，M4b/M5 未做
+    status: in-development               # M4a/M4b/M5 完成（2026-11-08）：复核界面框选裁切 + FastAPI 封装
     kind: python-package
     entry: "python -m archive_plate_assembler"
     skill_manifest: SKILL.md             # 待补
-    test_baseline: "tests/ 140 passed"
+    test_baseline: "tests/ 160 passed"
 
   - name: anchor-verify-strategizer
     path: skills/anchor-verify-strategizer   # 当前在仓库根 Anchor-Verify-Strategizer/
