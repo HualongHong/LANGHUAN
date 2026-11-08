@@ -2,7 +2,7 @@
  * Config schema 构造 —— 宿主可解析 @deepseek-ai/schemastery 时走 canonical
  * 路径（z.object，与内置插件同 idioms）；解析不到（pnpm link: 本地文件夹
  * 安装时插件 realpath 不在宿主 node_modules 树内）由 lib/index.js 回退到
- * 零依赖 Standard Schema，语义由 lib/resolve-config.js 保证一致。
+ * 零依赖 Standard Schema，语义由 @langhuan/plugin-core 的 resolve-config 保证一致。
  *
  * 版本兼容（0.1.x CLI / 0.2.x Desktop 双路径，Volatile 标记按能力探测）：
  * - 0.1.x（schemastery 3.18.x）：无 .volatile()；settings 命名空间靠服务端
@@ -18,8 +18,8 @@
  *   volatile，providers dict 整体标 volatile（条目内不再标）。
  */
 
-import { DEFAULT_ANNOTATION_PROVIDER, DEFAULT_DECISION_PROVIDER, DEFAULT_PROVIDERS, DEFAULT_SKILLS_DIR } from './presets.js';
-import { PROVIDER_TYPES, resolveConfigValue } from './resolve-config.js';
+import { DEFAULT_ANNOTATION_PROVIDER, DEFAULT_DECISION_PROVIDER, DEFAULT_PROVIDERS, DEFAULT_SKILLS_DIR } from '@langhuan/plugin-core';
+import { PROVIDER_TYPES, resolveConfigValue } from '@langhuan/plugin-core';
 
 /**
  * @param {any} z @deepseek-ai/schemastery 默认导出

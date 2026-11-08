@@ -40,6 +40,9 @@
   "devDependencies": {
     "@deepseek-ai/schemastery": "^3.18.0"
   },
+  "dependencies": {
+    "@langhuan/plugin-core": "file:../plugin-core"
+  },
   "keywords": [
     "dsh",
     "deepseek-harness",

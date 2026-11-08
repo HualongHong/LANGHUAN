@@ -36,8 +36,10 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { buildSchemasteryConfig, buildStandardSchemaConfig } from './schema.js';
-import { syncProvidersJson } from './write-providers.js';
-import { validateConfig, assertValidConfig, unwrapResolved } from './resolve-config.js';
+// 共享核心自 @langhuan/plugin-core 消费（plugin-core/lib 为唯一事实来源；
+// dsh-plugin 不再内嵌副本，见 BACKLOG「dsh-plugin 切 plugin-core」销项）。
+import { syncProvidersJson } from '@langhuan/plugin-core';
+import { validateConfig, assertValidConfig, unwrapResolved } from '@langhuan/plugin-core';
 
 export const name = 'langhuan';
 
