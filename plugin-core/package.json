@@ -1,0 +1,35 @@
+{
+  "name": "@langhuan/plugin-core",
+  "version": "0.1.0",
+  "description": "LangHuan 多宿主插件共享核心：运营商预置表、配置解析校验、providers.json 落盘同步。宿主无关、零运行时依赖。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./presets.js": {
+      "default": "./lib/presets.js"
+    },
+    "./resolve-config.js": {
+      "default": "./lib/resolve-config.js"
+    },
+    "./write-providers.js": {
+      "default": "./lib/write-providers.js"
+    },
+    "./schema-standard.js": {
+      "default": "./lib/schema-standard.js"
+    }
+  },
+  "files": [
+    "lib"
+  ],
+  "license": "MIT",
+  "author": "LangHuan Suite",
+  "keywords": [
+    "langhuan",
+    "plugin-core",
+    "providers",
+    "llm"
+  ]
+}
