@@ -1,10 +1,14 @@
-# langhuan-provider-card（Kimi Code 插件）
+# langhuan-provider-card（Kimi Work 桌面端 / Kimi Code 插件）
 
-LangHuan Suite 的 Kimi Code CLI 插件：把套件**中央模型运营商注册表**（`providers.json`）同步为 Kimi Code `config.toml` 的 `[providers.*]` / `[models.*]` 配置，附字段手册技能与两个斜杠命令。密钥只经 `api_key_env` 环境变量**名**引用，全程无明文 key。
+LangHuan Suite 的 Kimi 插件：把套件**中央模型运营商注册表**（`providers.json`）同步为 Kimi 供应商配置，附字段手册技能与两个命令。密钥只经 `api_key_env` 环境变量**名**引用，全程无明文 key。
 
-- manifest：`kimi.plugin.json`（name `langhuan-provider-card`，v0.1.0）
-- 技能：`skills/provider-config/SKILL.md`（providers.json ↔ config.toml 字段手册 + Windows setx 引导）
-- 命令：`/langhuan-provider-card:set-provider`、`/langhuan-provider-card:show-provider`
+> **目标宿主（2026-11-08 用户拍板）：Kimi Work 桌面端**（插件中心 + Plugin Builder 个人插件），
+> Kimi Code CLI 为次要路径。Kimi Work 桌面端与 Kimi Code 插件组件对齐（全量），
+> 网页版/App 仅支持 MCP+Skills 子集，不在目标范围。
+
+- manifest：`kimi.plugin.json`（name `langhuan-provider-card`，v0.1.0）；另备 `.claude-plugin/plugin.json` 同源副本供 Plugin Builder 摄取
+- 技能：`skills/provider-config/SKILL.md`（providers.json ↔ Kimi 供应商配置字段手册 + Windows setx 引导）
+- 命令：`set-provider`、`show-provider`（Kimi Code 里为 `/langhuan-provider-card:set-provider` 斜杠形式）
 - 同步脚本：`scripts/sync_kimi_providers.py`（Python ≥3.12，零依赖，只读环境变量名、永不读 key 值）
 - 许可证：MIT
 
@@ -32,17 +36,24 @@ key 值唯一事实来源：~/.agents/skills/langhuan.env（永不进本插件�
 
 ## 安装
 
-### Kimi Code CLI
+### Kimi Work 桌面端（主路径）
+
+Kimi Work 左侧边栏「插件」→ 插件中心 → **Plugin Builder**（内置创建技能）→ 创建个人插件，
+来源选「外部插件仓库/本地目录」，指向本目录（`D:/opt/dev/LangHuan/kimi-plugin`）或本仓库打包的 zip：
+Plugin Builder 会识别 `.claude-plugin/plugin.json`（已内置同源副本）/ `kimi.plugin.json`，
+转换为 `kimi.plugin.json` 并登记进「插件 → 个人」页签。之后在 Kimi Work 会话里即可调用本插件
+的技能与命令；同步脚本在 Work 桌面端同样可用（standalone Python）。
+
+> 未证实项：Plugin Builder 对本地目录的直接摄取未经实测（文档确认支持仓库/zip 四种源格式）；
+> 若目录直选不被接受，把 `kimi-plugin/` 打成 zip 再喂给 Plugin Builder。
+
+### Kimi Code CLI（次要路径）
 
 ```
 /plugins install D:/opt/dev/LangHuan/kimi-plugin
 ```
 
 （也支持 zip：把 `kimi-plugin/` 目录打包后 `/plugins install <zip 路径或 URL>`；或 GitHub 仓库。）装完按提示 `/plugins reload` 或开新会话。卸载：`/plugins uninstall langhuan-provider-card`。
-
-### Kimi Work 桌面端
-
-经 Plugin Builder 转换进入（Plugin Builder 可把 `.codex-plugin` / `.claude-plugin` / `plugin.json` 转为 `kimi.plugin.json` 登记为个人插件）；转换后配置入口仍是本插件的斜杠命令与脚本。
 
 ## 使用
 

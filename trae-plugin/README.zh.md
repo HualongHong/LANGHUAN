@@ -2,6 +2,11 @@
 
 LangHuan Suite 的 TRAE 插件：把 LangHuan 技能群的**模型运营商注册表**搬进 TRAE（VS Code fork）的设置体系——在设置卡片里统一维护标注/决策两个角色槽、技能目录，以及运营商入口的进阶覆盖，并由扩展在启动/配置变更时自动落盘为 lit-scout-harvester 的 `config/providers.json`。
 
+> **适用面（2026-11-08 用户告知）**：TRAE 的 Work / Code / Design 模式已合并为统一 Agent——
+> 本扩展是 IDE 级（`onStartupFinished` 激活 + `contributes.configuration`），与模式无关，
+> 在合并后的任一模式下设置卡片均可用。TRAE 原生「Agent 插件市场」（对话内 `/` 调用的
+> 形态）第三方开发文档未发布，暂不覆盖；卡片方案先行，Agent 插件形态列为观察项。
+
 - 形态：纯 JavaScript、无构建步骤的标准 VS Code 扩展（`package.json` + `extension.js` + `lib/`），TRAE 按 VS Code 扩展契约加载（.vsix / 开发态目录）
 - 共享核心：`@langhuan/plugin-core`（ESM，零依赖）——10 家运营商出厂预置、校验、providers.json 原子落盘；与 DSH 插件单点同源
 - 许可证：MIT

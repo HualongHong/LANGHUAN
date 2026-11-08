@@ -1,0 +1,13 @@
+{
+  "name": "langhuan-provider-card",
+  "version": "0.1.0",
+  "description": "把 LangHuan 模型运营商注册表（providers.json）同步为 Kimi Code config.toml 的 [providers.*]/[models.*] 配置；密钥只经 api_key_env 环境变量名引用，永不落明文 key。",
+  "keywords": ["langhuan", "providers", "llm"],
+  "interface": {
+    "displayName": "LangHuan 模型运营商配置",
+    "shortDescription": "同步 LangHuan 运营商卡片到 Kimi Code providers（中英 Sync LangHuan provider registry into Kimi Code config.toml）",
+    "longDescription": "读取 LangHuan 套件中央 providers.json（~/.agents/skills/langhuan-lit-scout-harvester/config/providers.json），把已启用且未预留的 OpenAI 兼容运营商写入 Kimi Code 的 config.toml：每家运营商一个 [providers.\"langhuan-<id>\"]（type/base_url/api_key_env），每个模型一条 [models.\"langhuan-<id>--<model>\"]。密钥只以 api_key_env 环境变量名的形式声明，Kimi 凭该变量名从进程环境取值，脚本与配置文件中永不出现 key 本体。标记块外内容原样保留，重复运行幂等。\n\nReads the LangHuan central providers.json and syncs enabled, non-reserved OpenAI-compatible providers into Kimi Code's config.toml as a managed marker block ([providers.\"langhuan-<id>\"] + [models.\"langhuan-<id>--<model>\"]). Secrets are referenced only by api_key_env variable names — never stored in plaintext."
+  },
+  "skills": ["provider-config"],
+  "commands": ["set-provider", "show-provider"]
+}

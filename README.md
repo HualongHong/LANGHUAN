@@ -81,14 +81,15 @@ cd trae-plugin && npx @vscode/vsce package     # 打出 langhuan-provider-card-0
 # 设置里搜 "LangHuan" 即见配置卡片；详见 trae-plugin/INSTALL.zh.md
 ```
 
-#### Kimi Code —— 插件 + config.toml 同步
+#### Kimi Work 桌面端 —— 插件 + 供应商配置同步
 
-[`kimi-plugin/`](kimi-plugin/README.zh.md)：Kimi Code 插件（`kimi.plugin.json` + 字段手册 Skill + 斜杠命令），配套同步脚本把卡片配置翻译为 `~/.kimi-code/config.toml` 的 `[providers.*]`（`api_key_env` 语义与卡片一致，Kimi watch 热更新）。
+[`kimi-plugin/`](kimi-plugin/README.zh.md)：Kimi 插件（`kimi.plugin.json` + 字段手册 Skill + 命令；经 **Plugin Builder** 登记为 Kimi Work 个人插件，Kimi Code CLI 也可直接 `/plugins install`），配套同步脚本把卡片配置翻译为供应商配置（`api_key_env` 语义与卡片一致）。
 
 ```bash
-# Kimi Code 会话内：
-/plugins install D:/opt/dev/LangHuan/kimi-plugin
-# 然后（会话内或 shell）跑一次同步：
+# Kimi Work：插件中心 → Plugin Builder → 创建个人插件 → 选 D:/opt/dev/LangHuan/kimi-plugin
+# （仓库已内置 .claude-plugin/plugin.json 源清单供摄取；也可打 zip 再喂）
+# Kimi Code CLI 备选：/plugins install D:/opt/dev/LangHuan/kimi-plugin
+# 同步脚本（两宿主通用）：
 python kimi-plugin/scripts/sync_kimi_providers.py        # --dry-run 先预览
 ```
 
