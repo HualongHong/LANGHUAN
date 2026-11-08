@@ -31,6 +31,10 @@ try {
   z = null; // link: 本地安装场景：宿主 schema 包不可解析，走 Standard Schema 回退
 }
 
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+
 import { buildSchemasteryConfig, buildStandardSchemaConfig } from './schema.js';
 import { syncProvidersJson } from './write-providers.js';
 import { validateConfig, assertValidConfig, unwrapResolved } from './resolve-config.js';
@@ -59,6 +63,18 @@ export function apply(ctx, config) {
   let current = () => unwrapResolved(config);
   const service = { path: '', snapshot: null };
 
+  // boot 自诊断：宿主日志通道在 Desktop 上不可见（crash dump 才有），
+  // 关键节点直接落独立文件，排查"插件到底加载/同步没有"不再靠猜。
+  const diagPath = join(homedir(), '.langhuan', 'dsh-plugin.log');
+  const diag = (line) => {
+    try {
+      mkdirSync(dirname(diagPath), { recursive: true });
+      appendFileSync(diagPath, `[${new Date().toISOString()}] ${line}\n`, 'utf8');
+    } catch {
+      // 诊断 best-effort：失败绝不影响主流程
+    }
+  };
+
   const sync = (trigger) => {
     const resolved = current();
     for (const error of validateConfig(resolved)) {
@@ -73,10 +89,12 @@ export function apply(ctx, config) {
       });
     } catch (error) {
       ctx.logger.error('[langhuan] providers.json 落盘失败 (%s): %s', trigger, error);
+      diag(`SYNC-FAIL trigger=${trigger} error=${error}`);
       return;
     }
     service.path = result.path;
     service.snapshot = result.data;
+    diag(`SYNC-OK trigger=${trigger} path=${result.path} changed=${result.changed} providers=${result.data.providers?.length ?? 0}`);
     if (result.changed) {
       const n = result.data.providers?.length ?? 0;
       ctx.logger.info(
@@ -91,6 +109,8 @@ export function apply(ctx, config) {
       ctx.logger.debug('[langhuan] providers.json 无变化 (%s)，跳过写入 (%s)', trigger, result.path);
     }
   };
+
+  diag(`BOOT apply start providers=${unwrapResolved(config).providers?.length ?? 0}`);
 
   // boot 同步不依赖任何服务——这是唯一必须成功的写路径。
   sync('boot');
@@ -119,6 +139,7 @@ export function apply(ctx, config) {
           onChange: () => sync('settings'),
         });
         ctx.logger.info('[langhuan] settings 命名空间 langhuan 已注册（0.1.x installSection；图形设置卡片可用）');
+        diag('ATTACH-OK path=0.1.x installSection');
       } catch (error) {
         ctx.logger.error('[langhuan] 0.1.x settings 命名空间注册失败（图形设置卡片不可用）: %s', error);
       }
@@ -132,6 +153,7 @@ export function apply(ctx, config) {
       try {
         ctx.on('loader/volatile-update', () => sync('volatile-update'));
         ctx.logger.info('[langhuan] 检测到 0.2.x 设置服务：Config 由 Host 自动服务为命名空间（entry id = langhuan；loader/volatile-update 已监听）');
+        diag('ATTACH-OK path=0.2.x volatile-update');
       } catch (error) {
         ctx.logger.error('[langhuan] 0.2.x volatile-update 监听注册失败: %s', error);
       }
@@ -145,11 +167,13 @@ export function apply(ctx, config) {
   const tryAttach = () => {
     const outcome = attachSettings();
     if (outcome === 'attached') return;
+    if (outcome === 'foreign') diag('ATTACH-FOREIGN settings 服务形态非预期（installSection/configForms 均不存在）');
     if (++attempts < 25) {
       timer = setTimeout(tryAttach, 200);
       timer.unref?.();
       return;
     }
+    diag('ATTACH-EXHAUSTED 25 次探测未等到 settings 服务；providers.json 仅靠 boot/remount 同步');
     ctx.logger.info('[langhuan] 宿主未提供设置扩展点（settings 服务缺失或形态非预期）；配置经 cordis.patch.yml 生效，providers.json 同步不受影响');
   };
   timer = setTimeout(tryAttach, 50);

@@ -41,7 +41,7 @@ pnpm add <LANGHUAN_REPO>/dsh-plugin
   经 DSH 的 profiles 级共享 node_modules 解析宿主 schemastery，
   使用与内置插件相同的 `z.object` schema，设置卡片可用。
 
-### 3. cordis.patch.yml 追加花名册行
+### 3. cordis.patch.yml 追加花名册行（仅首次安装需要）
 
 编辑 `~/.dsh/profiles/desktop/cordis.patch.yml`，在顶层数组末尾追加
 （新条目必须用 `- insert:` 包装——普通的 `- id:` 行只能修改已存在的条目）：
@@ -57,6 +57,16 @@ pnpm add <LANGHUAN_REPO>/dsh-plugin
 ```
 
 `config` 整段可省略（走出厂默认：7 预置 + deepseek/deepseek 角色 + `~/.agents/skills`）。
+
+> **⚠️ 重复条目事故（2026-11-07 实机踩坑）**：0.2.x 上设置卡片保存时，
+> Host 会自行把配置物化为 `cordis.patch.yml` 里一条**带 config 的普通
+> `- id: langhuan` 条目**。若此前手动加过 `- insert:` 花名册行，就会出现
+> 两个同 id 条目——cordis reconcile 直接失败，**插件静默不被加载**
+> （无 crash 日志，症状是重启后卡片消失、providers.json 不再同步）。
+> 对策：首次安装加一次即可；一旦发现重复，**完全退出 Desktop** 后删除
+> 手动 insert 块（保留 Host 写入的带 config 条目）。判断插件是否活着，
+> 看 `~/.langhuan/dsh-plugin.log` 的 boot/attach 诊断行（插件自带，不依赖
+> 宿主日志通道）。
 
 ### 4. 启动 Desktop 并验证
 
@@ -91,5 +101,7 @@ pnpm add <LANGHUAN_REPO>/dsh-plugin
 | 现象 | 排查 |
 |---|---|
 | 日志无 `[langhuan]` 行 | 花名册行缩进/顶层数组位置是否正确；`pnpm why @langhuan/dsh-plugin` 确认包装进 profile |
+| 重启后卡片消失、`~/.langhuan/dsh-plugin.log` 无 boot 行 | 典型为 cordis.patch.yml 出现**两个同 id langhuan 条目**（手动 insert + Host 保存物化）；完全退出 Desktop 后删手动 insert 块 |
+| 卡片在但改配置 providers.json 不更新 | 看 `~/.langhuan/dsh-plugin.log`：`ATTACH-OK path=...` 是否出现、`SYNC-OK` 的 trigger 与 changed 值 |
 | `[langhuan] 配置校验: ...` | 角色指向了不存在/未启用/reserved/缺 logprobs 的条目，按报错改 cordis.patch.yml |
 | `providers.json 落盘失败` | `skillsDir` 是否指向正确技能目录；目录写权限 |

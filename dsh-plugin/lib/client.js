@@ -425,7 +425,8 @@ window.__ModuleLoader__.load({
       sectionTitle: { fontSize: '12px', fontWeight: 600, color: cssVar('--dsw-alias-label-secondary', '#aaa'), margin: '6px 0 2px' },
       hint: { fontSize: '12px', color: cssVar('--dsw-alias-label-tertiary', '#888'), margin: '2px 0 0' },
       error: { fontSize: '12px', color: cssVar('--dsw-alias-label-error', '#e5534b'), margin: '2px 0 0' },
-      table: { width: '100%', borderCollapse: 'collapse', fontSize: '12px' },
+      tableWrap: { overflowX: 'auto', WebkitOverflowScrolling: 'touch', margin: '0 -14px', padding: '0 14px' },
+      table: { width: '100%', minWidth: '860px', borderCollapse: 'collapse', fontSize: '12px' },
       th: { textAlign: 'left', fontWeight: 500, color: cssVar('--dsw-alias-label-tertiary', '#888'), padding: '4px 6px', borderBottom: '0.5px solid ' + cssVar('--dsw-alias-border-l2', '#3a3a3a'), whiteSpace: 'nowrap' },
       td: { padding: '4px 6px', borderBottom: '0.5px solid ' + cssVar('--dsw-alias-border-l2', '#333'), verticalAlign: 'top' },
       input: { width: '100%', boxSizing: 'border-box', height: '28px', font: 'inherit', fontSize: '12px', color: cssVar('--dsw-alias-label-primary', '#eee'), background: cssVar('--dsw-alias-bg-layer-3', '#2b2b2b'), border: '0.5px solid ' + cssVar('--dsw-alias-border-l4', '#444'), borderRadius: '6px', padding: '0 8px' },
@@ -549,16 +550,17 @@ window.__ModuleLoader__.load({
           s.failed ? react.createElement('p', { style: S.error, role: 'alert' }, t('saveFailed')) : null,
 
           react.createElement('h4', { style: S.sectionTitle }, t('sectionProviders')),
-          react.createElement('table', { style: S.table },
-            react.createElement('thead', null, react.createElement('tr', null,
-              ['colEnabled', 'colOperator', 'colType', 'colBaseUrl', 'colApiKeyEnv', 'colModels', 'colLogprobs', 'colNote']
-                .map((k) => react.createElement('th', { key: k, style: S.th }, t(k))))),
-            react.createElement('tbody', null,
-              providerRows.length === 0
-                ? react.createElement('tr', null, react.createElement('td', { colSpan: 8, style: S.td }, t('noProviders')))
-                : providerRows.map((row) => react.createElement(ProviderRow, {
-                    key: row.id, t, row, actions: props, writable: s.writable
-                  })))),
+          react.createElement('div', { style: S.tableWrap },
+            react.createElement('table', { style: S.table },
+              react.createElement('thead', null, react.createElement('tr', null,
+                ['colEnabled', 'colOperator', 'colType', 'colBaseUrl', 'colApiKeyEnv', 'colModels', 'colLogprobs', 'colNote']
+                  .map((k) => react.createElement('th', { key: k, style: S.th }, t(k))))),
+              react.createElement('tbody', null,
+                providerRows.length === 0
+                  ? react.createElement('tr', null, react.createElement('td', { colSpan: 8, style: S.td }, t('noProviders')))
+                  : providerRows.map((row) => react.createElement(ProviderRow, {
+                      key: row.id, t, row, actions: props, writable: s.writable
+                    }))))),
 
           react.createElement('h4', { style: S.sectionTitle }, t('sectionRoles')),
           react.createElement(RoleSelect, {
