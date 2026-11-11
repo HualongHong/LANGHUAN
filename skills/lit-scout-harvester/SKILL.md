@@ -192,6 +192,6 @@ LLM 客户端一律依赖注入，这两个模块自身不发起任何真实 API
 - [`config/CONFIG_GUIDE.md`](config/CONFIG_GUIDE.md) — 配置项说明
 - [`references/MULTI_MODEL_SETUP.md`](references/MULTI_MODEL_SETUP.md) — 多 LLM 供应商与 fallback 配置
 - [`references/LOOP_ENGINEERING.md`](references/LOOP_ENGINEERING.md) — 反馈迭代闭环
-- [`references/MIGRATION_v0.1_to_v0.2.md`](../../docs/archive/lit-scout-harvester/MIGRATION_v0.1_to_v0.2.md) — v0.1 → v0.2 迁移指南（已归档至 docs/archive/）
+- [`references/MIGRATION_v0.1_to_v0.2.md`](../../dev-docs/archive/lit-scout-harvester/MIGRATION_v0.1_to_v0.2.md) — v0.1 → v0.2 迁移指南（已归档至 dev-docs/archive/，本地不入库）
 - [`references/MODULE_DEV.md`](references/MODULE_DEV.md) / [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md) — 模块开发与项目任务书（开发视图）
 - [`environment.md`](environment.md) — Agent 环境快照与重建步骤（含 `requirements-agent.txt`）

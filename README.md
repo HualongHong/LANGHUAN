@@ -106,7 +106,7 @@ python workbuddy-plugin/scripts/sync_workbuddy_models.py --dry-run   # 预览
 python workbuddy-plugin/scripts/sync_workbuddy_models.py             # 实跑后完全退出并重启 WorkBuddy
 ```
 
-各宿主的契约调研笔记见 `docs/research/{trae,workbuddy,kimi}-plugin-contract.md`。
+各宿主的契约调研笔记见 `dev-docs/research/{trae,workbuddy,kimi}-plugin-contract.md`（本地调研笔记，不入库）。
 
 ### 方式二：从源码构建
 

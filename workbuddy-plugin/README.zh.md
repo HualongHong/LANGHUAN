@@ -108,7 +108,7 @@ langhuan-* 条目消失时。
 
 - 与 `dsh-plugin/`（DSH 设置卡片）共享同一份 providers.json 与中央
   langhuan.env——**单一事实来源不变**，本插件只是多一个下游消费者。
-- 共享核心语义对照见 `docs/research/workbuddy-plugin-contract.md`（调研
+- 共享核心语义对照见 `dev-docs/research/workbuddy-plugin-contract.md`（本地调研笔记，不入库）（调研
   结论：WorkBuddy 无第三方设置卡片 API，models.json 注入是唯一主路径）。
 
 ## 许可

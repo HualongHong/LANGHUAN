@@ -104,4 +104,4 @@ APA_JOB_DIR=<job_dir> streamlit run archive_plate_assembler/review_ui/app.py
   框选裁切；生态照抠图同样需要人工兜底。
 - 管道断点可续：重跑同一 `job_dir` 会复用已确认的 `layout_rules.json` 与已有
   校验报告。
-- 设计文档见 `docs/archive/archive-plate-assembler/`（设定书/规划书/移交备忘录）。
+- 设计文档见 `dev-docs/archive/archive-plate-assembler/`（本地归档，不入库）（设定书/规划书/移交备忘录）。

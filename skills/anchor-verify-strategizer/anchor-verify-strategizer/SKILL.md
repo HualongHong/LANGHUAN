@@ -29,8 +29,8 @@ license: MIT
 > 基于 LLM 公开信息锚点 + 人工验证双轨制，系统评估企业与研究机构之间建立排他性产学研合作的可行性，最终输出 SWOT × 排他性分析报告。
 
 - **版本**: v1.1（MVP + SD 检索委托单 + 事实核验/一票否决 + 外部 Agent 核验接口）
-- **设定书**: `../../../docs/archive/anchor-verify-strategizer/anchor-verify-strategizer-spec.md`（已归档）
-- **开发日志**: `../../../docs/DEV_LOG.md`（已合并至套件级 docs/DEV_LOG.md）
+- **设定书**: `../../../dev-docs/archive/anchor-verify-strategizer/anchor-verify-strategizer-spec.md`（已归档，本地不入库）
+- **开发日志**: `../../../dev-docs/DEV_LOG.md`（已合并至套件级 dev-docs/DEV_LOG.md，本地不入库）
 - **适用场景**: 产学研合作排他性潜力评估（当前聚焦碳足迹追踪 / 减碳绿碳技术 / 碳金融三大技术方向）
 - **目标用户**: 战略规划人员、产学研合作负责人、技术转移办公室
 

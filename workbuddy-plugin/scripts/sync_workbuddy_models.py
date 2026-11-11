@@ -31,7 +31,7 @@
    能力的适配。请勿分发 models.json。
 
 models.json 逐字段 schema 未获官方公布（社区实证，见
-docs/research/workbuddy-plugin-contract.md）。fail-soft 约定：写盘结构按社区实证；
+dev-docs/research/workbuddy-plugin-contract.md，本地调研笔记不入库）。fail-soft 约定：写盘结构按社区实证；
 读取对未知字段宽容保留（整条目原样回写），JSON 损坏按空表处理并记 WARN。
 
 用法：

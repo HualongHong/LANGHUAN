@@ -119,4 +119,4 @@ key 的值                 ▼
 
 - Kimi 侧 provider type 一律写 `"openai"`（LangHuan 五类在 HTTP 层全部 OpenAI 兼容）。
 - 与用户自有 provider 不冲突：本插件全部条目加 `langhuan-` 前缀，且只动标记块内。
-- 调研依据：`docs/research/kimi-plugin-contract.md`（Kimi 全系无「设置卡片注入」机制，故 DSH 形态降级为 插件 + 斜杠命令 + 文档引导）。
+- 调研依据：`dev-docs/research/kimi-plugin-contract.md`（本地调研笔记，不入库）（Kimi 全系无「设置卡片注入」机制，故 DSH 形态降级为 插件 + 斜杠命令 + 文档引导）。

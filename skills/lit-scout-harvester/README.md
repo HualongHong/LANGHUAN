@@ -228,12 +228,12 @@ LangHuan/Lit-Scout-Harvester/
 
 - [PROJECT_BRIEF.md](PROJECT_BRIEF.md) - 完整项目任务书
 - [SKILL.md](SKILL.md) - Kimi Skill 入口（面向使用，跨 Agent 元数据 + 快速上手）
-- [DEV_LOG.md](../../docs/DEV_LOG.md) - 开发日志（已合并至套件级 docs/DEV_LOG.md）
+- [DEV_LOG.md](../../dev-docs/DEV_LOG.md) - 开发日志（已合并至套件级 dev-docs/DEV_LOG.md，本地不入库）
 - [references/USER_GUIDE.md](references/USER_GUIDE.md) - 用户使用手册
 - [references/MODULE_DEV.md](references/MODULE_DEV.md) - 模块开发指南
 - [references/LOOP_ENGINEERING.md](references/LOOP_ENGINEERING.md) - Loop Engineering 框架
 - [references/MULTI_MODEL_SETUP.md](references/MULTI_MODEL_SETUP.md) - 多模型供应商配置
-- [references/MIGRATION_v0.1_to_v0.2.md](../../docs/archive/lit-scout-harvester/MIGRATION_v0.1_to_v0.2.md) - v0.1 → v0.2 迁移指南（已归档至 docs/archive/）
+- [references/MIGRATION_v0.1_to_v0.2.md](../../dev-docs/archive/lit-scout-harvester/MIGRATION_v0.1_to_v0.2.md) - v0.1 → v0.2 迁移指南（已归档至 dev-docs/archive/，本地不入库）
 - [references/BENCHMARK.md](references/BENCHMARK.md) - 性能基准
 - [config/CONFIG_GUIDE.md](config/CONFIG_GUIDE.md) - 配置指南
 
