@@ -194,3 +194,19 @@ class TestLLMHook:
         set_provider(None)
         provider = AgentBridgeProvider()
         assert provider.api_key == ""
+
+
+class TestFingerprint:
+    """fingerprint：status/体检回显统一脱敏口径（末 4 位指纹，不回显明文）。"""
+
+    def test_none_and_empty_unconfigured(self):
+        assert credentials.fingerprint(None) == "(未配置)"
+        assert credentials.fingerprint("") == "(未配置)"
+
+    def test_tail4_exposed_only(self):
+        assert credentials.fingerprint("sk-abcdef0123451880") == "****1880"
+
+    def test_short_secret_fully_masked(self):
+        # 短密钥整体遮蔽，避免末 4 位即全文。
+        assert credentials.fingerprint("abc") == "****"
+        assert credentials.fingerprint("1234") == "****"

@@ -191,12 +191,27 @@ def now_utc() -> float:
     return time.time()
 
 
+def fingerprint(value: Optional[str]) -> str:
+    """凭据脱敏指纹：只暴露末尾 4 位，其余以 ``****`` 遮蔽。
+
+    status / 体检类输出统一经本函数回显凭据（「任何阶段不回显明文」红线）：
+    ``None`` / 空串返回 ``"(未配置)"``；不超过 4 位的短密钥整体遮蔽，
+    避免末 4 位即全文而被还原。
+    """
+    if not value:
+        return "(未配置)"
+    if len(value) <= 4:
+        return "****"
+    return "****" + value[-4:]
+
+
 __all__ = [
     "DEFAULT_REF_ENV_MAP",
     "CompositeCredentialProvider",
     "CredentialProvider",
     "EnvCredentialProvider",
     "LeaseRef",
+    "fingerprint",
     "get_provider",
     "now_utc",
     "set_provider",

@@ -95,6 +95,7 @@ propagate_env() {
     else
       cp -f "$central" "$d/.env"
     fi
+    chmod 600 "$d/.env" 2>/dev/null || true  # 凭证文件一律 0600（硬约束）
     n=$((n+1))
   done
   log "已分发 $SUITE_ENV → $n 个技能（硬链接优先，失败自动复制）"
@@ -121,6 +122,7 @@ cmd_install() {
     env_template > "$central"
     log "已创建统一配置: $central（填入 API key 后生效）"
   fi
+  chmod 600 "$central" 2>/dev/null || true  # 既有文件也一并收紧到 0600
   propagate_env
   reconcile_card_env "$TARGET"
 
