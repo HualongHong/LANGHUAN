@@ -39,5 +39,10 @@
     "enabled": false,
     "fields": ["AB", "DI"],
     "limit": null
+  },
+  "dianshi": {
+    "enabled": false,
+    "fields": ["AB", "DI"],
+    "limit": null
   }
 }

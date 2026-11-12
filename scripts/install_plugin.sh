@@ -82,6 +82,10 @@ AGENTKIT_OPENALEX_MAILTO=
 MINERU_API_TOKEN=
 # Sciverse 科研证据检索（LSH 题录补全 + sciverse 数据源；留空 = 相关功能停用）
 SCIVERSE_API_KEY=
+# 点石 Dianshi MCP（LSH 题录补全 + dianshi 数据源；留空 = 相关功能停用）
+# SSO 会话换发的 Bearer token（非长期 key，过期需重取）：浏览器登录
+# dianshi.opendatalab.org.cn 后用会话 cookie 调 /api/mcp/client-config 提取
+DIANSHI_SSO_TOKEN=
 
 # ---- 宿主能力租约（DSH Capsule 接入后由宿主注入，勿手填）----
 # AGENTKIT_HOST_LEASE=

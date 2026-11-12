@@ -57,6 +57,12 @@ def detect_datasource(file_path: str) -> str:
             payload = json.loads(stripped)
         except json.JSONDecodeError:
             payload = None
+        # Dianshi online job file: {"platform": "dianshi", "mode": ...}
+        # （判别键 platform/source——sciverse job 无此键，mode 词表部分重叠）
+        if isinstance(payload, dict) and str(
+            payload.get("platform") or payload.get("source") or ""
+        ).lower() == "dianshi":
+            return "dianshi"
         # Sciverse online job file: {"mode": "doi_list"|"search", ...}
         if isinstance(payload, dict) and payload.get("mode") in ("doi_list", "search"):
             return "sciverse"
@@ -93,6 +99,10 @@ def _load_native_records(
         from lit_scout_harvester.parsers.sciverse import load_sciverse_records
 
         return load_sciverse_records(input_path)
+    if datasource == "dianshi":
+        from lit_scout_harvester.parsers.dianshi import load_dianshi_records
+
+        return load_dianshi_records(input_path)
     return parse_wos_plaintext_to_list(input_path, fields=wos_fields)
 
 

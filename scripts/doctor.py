@@ -12,7 +12,8 @@
                密钥即 FAIL
   5. hosts     各宿主插件目录可见性提示（仅存在性：dsh/kimi/workbuddy/trae）
   6. platforms OpenDataLab 体系平台可达性/凭据（MinerU flash 端点、Sciverse
-               key 指纹与 /meta-catalog 探测、magic-pdf 本地档可用性）——
+               key 指纹与 /meta-catalog 探测、Dianshi MCP SSO token 与 tools/list
+               探测、magic-pdf 本地档可用性）——
                不可达报 DEGRADED 不判 FAIL（fail-soft 语义）
 
 退出码：0 = 无 FAIL（WARN/INFO 不阻断）；1 = 存在 FAIL。
@@ -219,6 +220,33 @@ def check_platforms() -> None:
              "Sciverse 可达（HTTP 401）" + ("：key 无效？" if token else "：未配置 key（预期）"))
     else:
         emit("WARN", "platforms", f"Sciverse /meta-catalog HTTP {status}：增强层状态待观察")
+
+    # Dianshi（点石）MCP：SSO token 档（无独立 API key）；GET /api/mcp 无 token
+    # 预期 401 = 服务可达；有 token 时调一次 tools/list 验证有效性（计入配额）
+    from agentkit.dianshi import DianshiClient, resolve_token as dianshi_token
+
+    token = dianshi_token()
+    if token:
+        emit("OK", "platforms", f"DIANSHI_SSO_TOKEN 已配置 = {fingerprint(token)}")
+    else:
+        emit("INFO", "platforms", "DIANSHI_SSO_TOKEN 未配置：点石题录补全/数据源停用（fail-soft）")
+    status = _probe("https://dianshi.opendatalab.org.cn/api/mcp")
+    if status is None:
+        emit("WARN", "platforms", "dianshi.opendatalab.org.cn 不可达：LSH Dianshi 增强层自动停用")
+    elif status == 401:
+        emit("OK", "platforms", "Dianshi /api/mcp 可达（HTTP 401 预期：未带凭据）")
+    else:
+        emit("WARN", "platforms", f"Dianshi /api/mcp HTTP {status}：增强层状态待观察")
+    if token:
+        try:
+            tools = DianshiClient().tools_list()
+        except Exception as exc:  # 客户端本身 fail-open，这里是双保险
+            tools = None
+            emit("WARN", "platforms", f"Dianshi tools/list 异常：{exc}")
+        if tools is not None:
+            emit("OK", "platforms", f"Dianshi token 有效：{len(tools)} 个 MCP 工具已注册")
+        else:
+            emit("WARN", "platforms", "Dianshi tools/list 失败：token 可能过期/权限未审批")
 
 
 def check_hosts() -> None:

@@ -376,6 +376,23 @@ class SciverseEnrichRules(BaseModel):
     limit: Optional[int] = None
 
 
+class DianshiEnrichRules(BaseModel):
+    """点石（Dianshi MCP）题录补全口径（2026-11-12 三平台对接）。
+
+    点石是化学向库（物质/反应/文献），与 sciverse 同一纪律：enrichment
+    改变记录内容，故默认关闭——显式 ``enabled: true`` 才启用；``fields``
+    限定可补缺字段（只补缺、不覆盖，见 parsers/dianshi.py
+    ``_ENRICHABLE``），``limit`` 限制单轮最多查询多少条（None=全部候选）。
+    需要 DIANSHI_SSO_TOKEN（SSO 会话换发，非长期 key）。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    fields: List[str] = Field(default_factory=lambda: ["AB", "DI"])
+    limit: Optional[int] = None
+
+
 class CaliberConfig(BaseModel):
     """口径唯一化登记簿：ID 字段、去重规则、计数口径、多标签 N*、验收判定线。
 
@@ -396,6 +413,7 @@ class CaliberConfig(BaseModel):
     strategy: StrategyRules = Field(default_factory=StrategyRules)
     review: ReviewEnqueueRules = Field(default_factory=ReviewEnqueueRules)
     sciverse: SciverseEnrichRules = Field(default_factory=SciverseEnrichRules)
+    dianshi: DianshiEnrichRules = Field(default_factory=DianshiEnrichRules)
 
 
 # ---------------------------------------------------------------------------

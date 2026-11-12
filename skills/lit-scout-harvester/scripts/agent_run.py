@@ -494,6 +494,9 @@ def _run_in_workdir(
     from lit_scout_harvester.parsers.sciverse import maybe_enrich_records
 
     records = maybe_enrich_records(records, config)
+    from lit_scout_harvester.parsers.dianshi import maybe_enrich_records as maybe_enrich_dianshi
+
+    records = maybe_enrich_dianshi(records, config)
     if args.limit is not None:
         records = records[: args.limit]
     summary["records"] = len(records)
