@@ -200,6 +200,25 @@
       "supports_logprobs": true,
       "reserved": false,
       "note": "scnet.cn 超算 model-deploy 专用端点，地址与 key 按平台分配填写"
+    },
+    {
+      "id": "internvl_local",
+      "operator": "InternVL 本地视觉（vLLM 自托管）",
+      "type": "openai_compatible",
+      "base_url": "http://127.0.0.1:8000/v1",
+      "api_key_env": "INTERNVL_API_KEY",
+      "ssh_host": "",
+      "ssh_port": 22,
+      "ssh_user": "",
+      "ssh_key_path": "",
+      "remote_host": "",
+      "remote_port": 0,
+      "local_port": 0,
+      "models": [],
+      "enabled": false,
+      "supports_logprobs": false,
+      "reserved": false,
+      "note": "OpenGVLab InternVL3/3.5 经 vLLM OpenAI 兼容端点本地 serving（vllm serve OpenGVLab/InternVL3-... --port 8000）；vLLM 未设 --api-key 时任填非空值（如 dummy）即可，本地不校验"
     }
   ]
 }

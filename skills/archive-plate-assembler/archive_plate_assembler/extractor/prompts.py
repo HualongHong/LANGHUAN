@@ -30,7 +30,8 @@ _JSON_SCHEMA_EXAMPLE = """{
 
 
 def build_extract_prompt(
-    rules: LayoutRules, page_number: int, taxon_hint: str | None = None
+    rules: LayoutRules, page_number: int, taxon_hint: str | None = None,
+    ocr_text: str | None = None,
 ) -> str:
     """构造单页信息抽取 prompt。
 
@@ -38,7 +39,10 @@ def build_extract_prompt(
     - 约束输出为固定 JSON 结构（见 _JSON_SCHEMA_EXAMPLE）；
     - page_number 用于告诉模型当前抽取的是扫描 PDF 的第几页；
     - taxon_hint 非空时在末尾追加目标类群提示（提升该类群条目召回，
-      并约束 bbox 紧贴单个目标主体）；为 None 时 prompt 与原状完全一致。
+      并约束 bbox 紧贴单个目标主体）；为 None 时 prompt 与原状完全一致；
+    - ocr_text 非空时追加【本页 OCR 参考文本】段（MinerU 解码产物）：
+      描述可经润色直接采用，学名/数字仍以图像核对为准；为 None 时
+      prompt 与未接入解码器时逐字节一致。
     """
     boundary_rules = "\n".join(f"  {i + 1}. {rule}" for i, rule in enumerate(rules.entry_boundary_rules))
     if not boundary_rules:
@@ -67,5 +71,11 @@ def build_extract_prompt(
             f"\n\n【目标类群提示】本书目标类群为：{taxon_hint}。"
             "凡属于该类群的物种条目与其标本/生态图像都必须抽取，不要遗漏；"
             "图像区域的 bbox 应紧贴单个目标主体，不得混入相邻标本或页眉页脚。"
+        )
+    if ocr_text:
+        prompt += (
+            "\n\n【本页 OCR 参考文本】（文档解析服务提供的高保真文本，可直接润色采用；"
+            "学名拼写与数字仍以图像核对为准）\n"
+            f"{ocr_text.strip()}"
         )
     return prompt

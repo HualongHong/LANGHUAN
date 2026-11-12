@@ -87,9 +87,33 @@ def run_pipeline(
         logger.info("节点2完成：版式=%s", rules.template_description[:50])
 
         # ---- 节点 4：多模态信息抽取（模型 A）----
+        # MinerU 文档解码（fail-soft）：APA_DECODER=local 或未装平台时
+        # decoded 为空 dict，下方 ocr_text 全为 None，行为与未接入逐字节一致。
+        from archive_plate_assembler.decoder import (
+            decode_documents, text_only_enabled,
+        )
+
+        decoded = decode_documents(sorted(pdf_paths, key=lambda p: infer_page_start(p) or 0))
+        page_ocr: dict[int, str] = {}
+        page_text_only: set[int] = set()
+        if decoded and text_only_enabled():
+            for doc in decoded.values():
+                page_ocr.update(doc.book_page_map())
+                for idx, text in doc.page_texts().items():
+                    if text.strip() and not doc.page_has_images(idx):
+                        page_text_only.add(doc.page_start + idx)
+        elif decoded:
+            for doc in decoded.values():
+                page_ocr.update(doc.book_page_map())
+        if decoded:
+            summary["decoder_docs"] = len(decoded)
+            summary["decoder_modes"] = sorted({d.mode for d in decoded.values()})
         drafts = []
         for p in pages:
-            drafts.extend(extract_page(gateway, p, rules, taxon_hint=taxon_hint))
+            use_text_only = p.page_number in page_text_only
+            drafts.extend(extract_page(gateway, p, rules, taxon_hint=taxon_hint,
+                                       ocr_text=page_ocr.get(p.page_number),
+                                       text_only=use_text_only))
         n_err = sum(1 for d in drafts if d.extraction_error)
         summary["drafts"], summary["extraction_errors"] = len(drafts), n_err
         logger.info("节点4完成：%d 个条目草稿（%d 个抽取失败）", len(drafts), n_err)

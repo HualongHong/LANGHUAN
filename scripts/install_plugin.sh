@@ -77,6 +77,12 @@ PDF_RENDER_DPI=300
 # ---- 在线源礼貌池（OpenAlex 免费额度建议填写）----
 AGENTKIT_OPENALEX_MAILTO=
 
+# ---- OpenDataLab 体系平台（2026-11-12 对接；全部可选，留空自动降级）----
+# MinerU 文档解析（APA 解码器 token 档；留空 = 免登录 flash 档 + 本地引擎档）
+MINERU_API_TOKEN=
+# Sciverse 科研证据检索（LSH 题录补全 + sciverse 数据源；留空 = 相关功能停用）
+SCIVERSE_API_KEY=
+
 # ---- 宿主能力租约（DSH Capsule 接入后由宿主注入，勿手填）----
 # AGENTKIT_HOST_LEASE=
 EOF

@@ -63,6 +63,8 @@ DEFAULT_REF_ENV_MAP: dict[str, Optional[str]] = {
     "minimax:group_id": "MINIMAX_GROUP_ID",
     "gemini:api_key": "GEMINI_API_KEY",
     "claude:api_key": "CLAUDE_API_KEY",
+    "mineru:api_key": "MINERU_API_TOKEN",
+    "sciverse:api_key": "SCIVERSE_API_KEY",
     "agent_bridge:api_key": None,  # 宿主工单队列无需凭据
 }
 

@@ -52,14 +52,22 @@ def detect_datasource(file_path: str) -> str:
     if "【题名】" in text[:2000] or "题名:" in text[:2000] or "标题:" in text[:2000]:
         return "cnki"
     stripped = text.lstrip()
+    if stripped.startswith("{"):
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            payload = None
+        # Sciverse online job file: {"mode": "doi_list"|"search", ...}
+        if isinstance(payload, dict) and payload.get("mode") in ("doi_list", "search"):
+            return "sciverse"
+        # OpenAlex list-response envelope (meta + results) or a plain work list.
+        if isinstance(payload, dict) and isinstance(payload.get("results"), list):
+            return "openalex"
     if stripped.startswith("{") or stripped.startswith("["):
         try:
             payload = json.loads(stripped)
         except json.JSONDecodeError:
             payload = None
-        # OpenAlex list-response envelope (meta + results) or a plain work list.
-        if isinstance(payload, dict) and isinstance(payload.get("results"), list):
-            return "openalex"
         if isinstance(payload, list) and payload and all(
             isinstance(item, dict) and ("display_name" in item or "id" in item)
             for item in payload
@@ -81,6 +89,10 @@ def _load_native_records(
         from lit_scout_harvester.parsers.openalex import load_openalex_records
 
         return load_openalex_records(input_path, fetcher=fetcher, state_dir=quota_state)
+    if datasource == "sciverse":
+        from lit_scout_harvester.parsers.sciverse import load_sciverse_records
+
+        return load_sciverse_records(input_path)
     return parse_wos_plaintext_to_list(input_path, fields=wos_fields)
 
 

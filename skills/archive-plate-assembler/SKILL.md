@@ -104,4 +104,14 @@ APA_JOB_DIR=<job_dir> streamlit run archive_plate_assembler/review_ui/app.py
   框选裁切；生态照抠图同样需要人工兜底。
 - 管道断点可续：重跑同一 `job_dir` 会复用已确认的 `layout_rules.json` 与已有
   校验报告。
+- **文档解码器（MinerU，可选增强）**：设 `APA_DECODER`（默认 `auto`）后，节点 4
+  之前会经 MinerU 三档（flash 免登录 → token 精准 → local 本地引擎）解码源
+  PDF，把高保真 OCR 文本注入抽取 prompt（描述可直接润色采用，学名/数字仍以
+  图像核对）。`APA_DECODER=local` 完全禁用（零请求、行为与未接入逐字节一致）；
+  平台全部不可用时自动回落视觉路径。`APA_DECODER_TEXT_ONLY=1`（实验）对解码
+  确认无图片块的页用纯文本调用角色 A（省视觉 token）。token 档凭据
+  `MINERU_API_TOKEN`（中央 langhuan.env）；`scripts/doctor.py` platforms 组
+  可体检可达性。本地视觉备选：InternVL 经 vLLM 自托管，角色 A 切
+  `APA_ROLE_A_PROVIDER=openai_compatible` + `MINIMAX_*` 指向本地端点即可
+  （LSH providers.json 亦有 `internvl_local` 预设可参考）。
 - 设计文档见 `dev-docs/archive/archive-plate-assembler/`（本地归档，不入库）（设定书/规划书/移交备忘录）。

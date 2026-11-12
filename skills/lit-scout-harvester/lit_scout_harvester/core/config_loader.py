@@ -361,6 +361,21 @@ class ReviewEnqueueRules(BaseModel):
     batch_enqueue: bool = True
 
 
+class SciverseEnrichRules(BaseModel):
+    """Sciverse 题录补全口径（2026-11-12 双平台对接方案 Phase 2）。
+
+    enrichment 改变记录内容，故默认关闭——显式 ``enabled: true`` 才启用；
+    ``fields`` 限定可补缺字段（只补缺、不覆盖，见 parsers/sciverse.py
+    ``_ENRICHABLE``），``limit`` 限制单轮最多查询多少条（None=全部候选）。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    fields: List[str] = Field(default_factory=lambda: ["AB", "DI"])
+    limit: Optional[int] = None
+
+
 class CaliberConfig(BaseModel):
     """口径唯一化登记簿：ID 字段、去重规则、计数口径、多标签 N*、验收判定线。
 
@@ -380,6 +395,7 @@ class CaliberConfig(BaseModel):
     audit: AuditRules = Field(default_factory=AuditRules)
     strategy: StrategyRules = Field(default_factory=StrategyRules)
     review: ReviewEnqueueRules = Field(default_factory=ReviewEnqueueRules)
+    sciverse: SciverseEnrichRules = Field(default_factory=SciverseEnrichRules)
 
 
 # ---------------------------------------------------------------------------

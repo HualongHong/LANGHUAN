@@ -11,6 +11,9 @@
                KEY_RE 口径）：Config 只存 api_key_env 变量名，检出疑似明文
                密钥即 FAIL
   5. hosts     各宿主插件目录可见性提示（仅存在性：dsh/kimi/workbuddy/trae）
+  6. platforms OpenDataLab 体系平台可达性/凭据（MinerU flash 端点、Sciverse
+               key 指纹与 /meta-catalog 探测、magic-pdf 本地档可用性）——
+               不可达报 DEGRADED 不判 FAIL（fail-soft 语义）
 
 退出码：0 = 无 FAIL（WARN/INFO 不阻断）；1 = 存在 FAIL。
 凭证文件位置可用环境变量 LANGHUAN_SKILLS_DIR 覆盖（默认 ~/.agents/skills）。
@@ -167,6 +170,57 @@ HOST_HINTS = [
 ]
 
 
+def _probe(url: str, headers: Optional[dict] = None, timeout: float = 5.0) -> Optional[int]:
+    """GET 探测：返回 HTTP 状态码（含 4xx/5xx——服务可达即返回），网络失败 None。"""
+    import urllib.error
+    import urllib.request
+
+    request = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:
+            return resp.status
+    except urllib.error.HTTPError as exc:
+        return exc.code
+    except (OSError, ValueError):
+        return None
+
+
+def check_platforms() -> None:
+    """OpenDataLab 体系平台体检（2026-11-12 双平台对接）：只报状态，不判 FAIL。"""
+    import importlib.util
+
+    from agentkit.sciverse import resolve_token as sciverse_token
+
+    # MinerU：flash 免登录端点可达性 + 本地引擎档可用性
+    status = _probe("https://mineru.net")
+    if status is None:
+        emit("WARN", "platforms", "mineru.net 不可达：APA 解码器将回落 local 档（零行为变化）")
+    else:
+        emit("OK", "platforms", f"mineru.net 可达（HTTP {status}）：flash 免登录档可用")
+    if importlib.util.find_spec("magic_pdf") is not None:
+        emit("OK", "platforms", "magic-pdf 可导入：MinerU 本地引擎档可用（零网络兜底）")
+    else:
+        emit("INFO", "platforms", "magic-pdf 未安装：MinerU local 档不可用（可选增强，非必需）")
+
+    # Sciverse：key 指纹 + /meta-catalog 探测（无 key 时期待 401 = 服务可达）
+    token = sciverse_token()
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    if token:
+        emit("OK", "platforms", f"SCIVERSE_API_KEY 已配置 = {fingerprint(token)}")
+    else:
+        emit("INFO", "platforms", "SCIVERSE_API_KEY 未配置：题录补全与 sciverse 数据源停用（fail-soft）")
+    status = _probe("https://api.sciverse.space/meta-catalog", headers=headers)
+    if status is None:
+        emit("WARN", "platforms", "api.sciverse.space 不可达：LSH Sciverse 增强层自动停用")
+    elif status == 200:
+        emit("OK", "platforms", "Sciverse /meta-catalog 探测通过（key 有效）")
+    elif status == 401:
+        emit("OK" if not token else "WARN", "platforms",
+             "Sciverse 可达（HTTP 401）" + ("：key 无效？" if token else "：未配置 key（预期）"))
+    else:
+        emit("WARN", "platforms", f"Sciverse /meta-catalog HTTP {status}：增强层状态待观察")
+
+
 def check_hosts() -> None:
     for name, path, desc in HOST_HINTS:
         if path.exists():
@@ -182,6 +236,7 @@ def main() -> int:
     env_slots = check_creds()
     check_settings(env_slots)
     check_hosts()
+    check_platforms()
     fails = sum(1 for level, _, _ in _findings if level == "FAIL")
     warns = sum(1 for level, _, _ in _findings if level == "WARN")
     print(f"\n结果：{fails} FAIL / {warns} WARN" + (" — 存在需修复项" if fails else " — 无阻断项"))

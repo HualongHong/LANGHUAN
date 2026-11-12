@@ -491,6 +491,9 @@ def _run_in_workdir(
     # exact page without re-requesting already-received IDs.
     quota_state = str(workdir / QUOTA_STATE_DIR) if args.resume else None
     records = load_records(config, str(input_path), quota_state=quota_state)
+    from lit_scout_harvester.parsers.sciverse import maybe_enrich_records
+
+    records = maybe_enrich_records(records, config)
     if args.limit is not None:
         records = records[: args.limit]
     summary["records"] = len(records)

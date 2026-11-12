@@ -34,5 +34,10 @@
   },
   "review": {
     "batch_enqueue": true
+  },
+  "sciverse": {
+    "enabled": false,
+    "fields": ["AB", "DI"],
+    "limit": null
   }
 }

@@ -81,24 +81,30 @@ def extract_page(
     rules: LayoutRules,
     taxon_hint: str | None = None,
     max_retries: int = 1,
+    ocr_text: str | None = None,
+    text_only: bool = False,
 ) -> list[EntryDraft]:
     """抽取单页物种条目。
 
-    调用角色 A（附带页面图像）。解析失败（网关异常、返回非 dict、
+    调用角色 A（默认附带页面图像）。解析失败（网关异常、返回非 dict、
     缺 entries 字段等）时在 prompt 后追加上次错误说明重试，共尝试
     max_retries + 1 次；仍失败则返回单个带 extraction_error 的
     EntryDraft（entry_id=f"{页码}-error"），不抛异常。
     page_has_species=false 或 entries 为空时返回空列表。
     taxon_hint 非空时透传给 build_extract_prompt，注入目标类群提示。
+    ocr_text 非空时透传给 build_extract_prompt 注入 OCR 参考文本
+    （MinerU 解码产物；None 时 prompt 与未接入解码器时逐字节一致）。
+    text_only=True 时不附页面图像（纯文本调用，省视觉 token）——仅用于
+    解码器已确认该页为纯文本页的实验性降本路径。
     """
-    prompt = build_extract_prompt(rules, page.page_number, taxon_hint=taxon_hint)
+    prompt = build_extract_prompt(rules, page.page_number, taxon_hint=taxon_hint, ocr_text=ocr_text)
     last_error: str = ""
 
     for attempt in range(max_retries + 1):
         if attempt > 0:
-            prompt = build_extract_prompt(rules, page.page_number, taxon_hint=taxon_hint) + _RETRY_HINT_TEMPLATE.format(error=last_error)
+            prompt = build_extract_prompt(rules, page.page_number, taxon_hint=taxon_hint, ocr_text=ocr_text) + _RETRY_HINT_TEMPLATE.format(error=last_error)
         try:
-            result = gateway.chat_vision("A", prompt, images=[page.image_path])
+            result = gateway.chat_vision("A", prompt, images=[] if text_only else [page.image_path])
             if not isinstance(result, dict) or "entries" not in result or not isinstance(result["entries"], list):
                 raise ValueError("返回结构缺少 entries 数组")
         except Exception as exc:  # 网关异常与结构异常统一走重试

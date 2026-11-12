@@ -744,6 +744,26 @@ API key；运行中加 `--resume` 会把游标和已收 ID 持久化在 `<workdi
 核对 DOI 可解析性与标题/作者/期刊一致性（宽松匹配），输出清单 CSV、汇总 JSON，并把核对
 汇总写入 `out/CITATION.md`。设置 `AGENTKIT_OPENALEX_MAILTO=你的邮箱` 可进入礼貌池。
 
+### 18.1 Sciverse 科研证据层（OpenDataLab 体系，可选增强）
+
+Sciverse（5.46 亿文献/专利元数据、3071 万解析全文）是第二在线数据源，**fail-soft：
+未配置 key / 限频 / 不可达时全部功能自动停用，pipeline 行为与未接入时一致**。
+
+- **题录补全**（默认关）：`config/caliber.json` 设 `sciverse.enabled: true` 后，
+  WOS/CNKI 解析后的记录在 pipeline 入口经 Sciverse 元数据**补缺**（默认字段
+  `AB`/`DI`，CNKI 题录缺摘要的场景收益最大）；**只补缺、不覆盖**，题名匹配需
+  归一化相等防误补，补不到保持原样。统计写入运行日志（`enriched/candidates`）。
+- **新数据源**：`skeleton.datasource: sciverse`，job 文件 JSON 两种形态：
+  `{"mode": "doi_list", "dois": [...]}`（已知 DOI 取题录）或
+  `{"mode": "search", "query": "...", "filters": [...], "max_records": N,
+  "page_size": N}`（结构化检索发现）；命中映射为 WOS 字段码，pipeline 无感。
+  `datasource: auto_detect` 对上述 job 文件自动识别。
+- 凭据：`SCIVERSE_API_KEY`（中央 langhuan.env，经 `agentkit.credentials` 接缝）。
+  客户端 `agentkit.sciverse.SciverseClient` 六端点（meta-search / agentic-search /
+  meta-catalog / meta-paper-relations / content / resource），`read_content` 与
+  资源读取带 7 天磁盘缓存；429/5xx 返回 None 不抛穿。
+- `scripts/doctor.py` 的 platforms 组可体检可达性与 key 有效性。
+
 ---
 
 ## 19. 人工标注复核页

@@ -264,6 +264,21 @@ def _presets() -> List[ProviderEntry]:
             supports_logprobs=True,
             note="scnet.cn 超算 model-deploy 专用端点，地址与 key 按平台分配填写",
         ),
+        ProviderEntry(
+            id="internvl_local",
+            operator="InternVL 本地视觉（vLLM 自托管）",
+            type=TYPE_OPENAI_COMPATIBLE,
+            base_url="http://127.0.0.1:8000/v1",
+            api_key_env="INTERNVL_API_KEY",
+            models=[],
+            enabled=False,
+            supports_logprobs=False,
+            note=(
+                "OpenGVLab InternVL3/3.5 经 vLLM OpenAI 兼容端点本地 serving"
+                "（vllm serve OpenGVLab/InternVL3-... --port 8000）；"
+                "vLLM 未设 --api-key 时任填非空值（如 dummy）即可，本地不校验"
+            ),
+        ),
     ]
 
 
@@ -272,7 +287,7 @@ PRESET_IDS = tuple(e.id for e in PRESETS)
 
 
 def default_registry() -> ProviderRegistry:
-    """出厂注册表：10 个预置运营商 + 角色槽默认 DeepSeek。"""
+    """出厂注册表：11 个预置运营商 + 角色槽默认 DeepSeek。"""
     return ProviderRegistry(
         providers=copy.deepcopy(PRESETS),
         annotation_provider=DEFAULT_ANNOTATION_PROVIDER,

@@ -22,8 +22,8 @@ FACTORY_JSON = SKILL_ROOT / "config" / "providers.json"
 def test_factory_json_matches_presets():
     registry = pr.load_registry(FACTORY_JSON)
     assert [e.id for e in registry.providers] == list(pr.PRESET_IDS)
-    assert len(registry.providers) == 10
-    assert len({e.id for e in registry.providers}) == 10  # id 唯一
+    assert len(registry.providers) == 11
+    assert len({e.id for e in registry.providers}) == 11  # id 唯一
     by_id = {e.id: e for e in registry.providers}
     # 预留入口
     assert by_id["tencent"].reserved is True and by_id["tencent"].enabled is False
@@ -71,6 +71,12 @@ def test_factory_json_new_presets():
     assert scnet.base_url == "https://<scnet-endpoint>/v1"
     assert scnet.api_key_env == "SCNET_DEPLOY_API_KEY"
     assert scnet.supports_logprobs is True and scnet.enabled is False
+    # InternVL 本地视觉（vLLM 自托管）
+    internvl = by_id["internvl_local"]
+    assert internvl.type == pr.TYPE_OPENAI_COMPATIBLE
+    assert internvl.base_url == "http://127.0.0.1:8000/v1"
+    assert internvl.api_key_env == "INTERNVL_API_KEY"
+    assert internvl.enabled is False and internvl.supports_logprobs is False
     # 三个新类型都进了 PROVIDER_TYPES
     assert pr.TYPE_SSH_TUNNEL in pr.PROVIDER_TYPES
     assert pr.TYPE_MODEL_DEPLOYMENT in pr.PROVIDER_TYPES

@@ -54,6 +54,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     scheduler = PipelineScheduler(config, cache, modules=modules)
     records = load_records(config, str(args.input))
+    from lit_scout_harvester.parsers.sciverse import maybe_enrich_records
+
+    records = maybe_enrich_records(records, config)
     if args.limit is not None:
         records = records[: args.limit]
     logger.info("Loaded %d records from %s", len(records), args.input)
