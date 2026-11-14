@@ -90,6 +90,14 @@ class PipelineScheduler:
         if self.config.skeleton.translate_to_chinese or self.config.skeleton.segment_abstract:
             self._llm_client = LLMClient(self.config.llm, self.cache)
 
+        # Translator 依赖检测回调跳过目标语言文本；必须先初始化检测器，
+        # 否则构造 Translator 时 self._language_identifier 永远还是 None。
+        if self.config.skeleton.language_detection:
+            self._language_identifier = LanguageIdentifier(
+                model_path=self.config.skeleton.language_model_path,
+                fallback=True,
+            )
+
         output_language = self.config.skeleton.output_language
         if output_language == "raw":
             self._translator = None
@@ -108,12 +116,6 @@ class PipelineScheduler:
                 llm_client=self._llm_client,
                 cache=self.cache,
                 batch_size=self.config.global_.batch_size,
-            )
-
-        if self.config.skeleton.language_detection:
-            self._language_identifier = LanguageIdentifier(
-                model_path=self.config.skeleton.language_model_path,
-                fallback=True,
             )
 
         if self.config.skeleton.address_parser.use_inst_city_map:

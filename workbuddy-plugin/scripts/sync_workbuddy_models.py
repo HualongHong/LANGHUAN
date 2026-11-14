@@ -32,7 +32,7 @@
 
 models.json 逐字段 schema 未获官方公布（社区实证，见
 dev-docs/research/workbuddy-plugin-contract.md，本地调研笔记不入库）。fail-soft 约定：写盘结构按社区实证；
-读取对未知字段宽容保留（整条目原样回写），JSON 损坏按空表处理并记 WARN。
+读取对未知字段宽容保留（整条目原样回写），JSON 损坏时中止且绝不覆盖原文件。
 
 用法：
     python scripts/sync_workbuddy_models.py                 # 默认路径（见下）
@@ -171,16 +171,16 @@ def detect_models_path(home: Path, override: Path | None) -> Path | None:
 
 def read_existing_models(path: Path) -> tuple[list, str]:
     """读取现有 models.json。列表或 dict 形态兼容（dict 取 values；"models"
-    包裹层也认）；未知字段整条目保留。损坏/缺失 → 空表 + WARN（fail-soft）。
+    包裹层也认）；未知字段整条目保留。缺失 → 空表；损坏 → ValueError，禁止写盘。
     """
     if not path.exists():
         return [], "missing"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        print(f"[WARN] {path} 不是合法 JSON（{exc}）——按空表处理，"
-              "原文件内容不会被本脚本改写（仍会生成 .bak 备份）")
-        return [], "corrupt"
+        # 损坏配置不能按空表重建：那会静默丢弃全部既有模型。调用方必须
+        # 中止写盘，由用户先修复或移走原文件。
+        raise ValueError(f"{path} 不是合法 JSON，已中止同步以避免覆盖原配置: {exc}") from exc
     if isinstance(data, list):
         return data, "list"
     if isinstance(data, dict):
@@ -323,7 +323,11 @@ def main(argv: list[str]) -> int:
               "请检查 providers.json 是否有 enabled 且配了 models 的供应商")
 
     # ---- 合并 ----
-    existing, form = read_existing_models(models_path)
+    try:
+        existing, form = read_existing_models(models_path)
+    except (OSError, ValueError) as exc:
+        print(f"[ERROR] 读取现有 models.json 失败：{exc}")
+        return 1
     kept = [e for e in existing if not is_langhuan_entry(e)]
     removed = [e for e in existing if is_langhuan_entry(e)]
     merged = kept + new_entries

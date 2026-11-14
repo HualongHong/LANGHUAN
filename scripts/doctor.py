@@ -30,6 +30,7 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "libs"))
@@ -61,8 +62,13 @@ def check_venvs() -> None:
     for skill_dir in sorted((ROOT / "skills").iterdir()):
         if not skill_dir.is_dir():
             continue
-        py = skill_dir / ".venv" / "bin" / "python"
-        if not py.exists():
+        # 开发基线同时覆盖 Windows 与 POSIX；只查 bin/python 会把可用的
+        # Windows venv 误报为缺失。
+        candidates = [skill_dir / ".venv" / "bin" / "python"]
+        if os.name == "nt":
+            candidates.insert(0, skill_dir / ".venv" / "Scripts" / "python.exe")
+        py = next((path for path in candidates if path.is_file()), candidates[0])
+        if not py.is_file():
             emit("WARN", "venv", f"{skill_dir.name}: 无 .venv（重建: python3.14 -m venv "
                                  f"skills/{skill_dir.name}/.venv）")
             continue

@@ -6,7 +6,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 
 /** 客户端插件依赖的浏览器侧服务。 */
-export const inject: ['slots', 'locale', 'settingsScope'];
+export const inject: ['slots', 'locale'];
 
 /** 浏览器半侧入口（DSH 客户端模块系统在页面 cordis 树中调用）。 */
 export function apply(ctx: Context): void;

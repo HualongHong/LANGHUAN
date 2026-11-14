@@ -48,6 +48,7 @@ __all__ = [
     "FetchError",
     "default_transport",
     "fetch",
+    "no_redirect_opener",
 ]
 
 DEFAULT_ACCEPT = "*/*"
@@ -120,7 +121,16 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_OPENER = urllib.request.build_opener(_NoRedirect)
+def no_redirect_opener() -> urllib.request.OpenerDirector:
+    """Build an opener that surfaces 3xx instead of following it implicitly.
+
+    Authenticated API clients share this policy so a redirect cannot forward
+    bearer tokens to an unexpected origin; callers decide each redirect hop.
+    """
+    return urllib.request.build_opener(_NoRedirect)
+
+
+_OPENER = no_redirect_opener()
 
 
 def default_transport(url: str, headers: Mapping[str, str], timeout: float) -> RawResponse:

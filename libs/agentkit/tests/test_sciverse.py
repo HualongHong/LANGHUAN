@@ -144,6 +144,19 @@ class TestReadContentAndCache:
         assert client.get_resource("../evil.png") is None
         assert client.get_resource("/abs.png") is None
 
+    def test_corrupt_cached_resource_falls_back_to_network(self, tmp_path):
+        from agentkit.cache import CacheManager
+
+        cache = CacheManager(tmp_path / "c.db")
+        key = "sciverse:resource:dt=x/p_1/f3.png"
+        cache.set(key, json.dumps({"ts": 1000.0, "data": {"b64": "not base64!"}}))
+
+        def handler(m, url, headers, body):
+            return RawResponse(status=200, headers={"Content-Type": "image/png"}, body=b"PNG")
+
+        client = _client(handler, cache=cache, now=lambda: 1000.0)
+        assert client.get_resource("dt=x/p_1/f3.png") == (b"PNG", "image/png")
+
 
 class TestTokenResolution:
     def test_env_priority(self, monkeypatch, tmp_path):

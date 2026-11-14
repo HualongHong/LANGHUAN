@@ -518,3 +518,12 @@ def test_env_file_has_key_only_checks_existence(tmp_path):
     env.write_text("MY_KEY=secret-value\n# OTHER=1\n", encoding="utf-8")
     assert pr.env_file_has_key(env, "MY_KEY") is True
     assert pr.env_file_has_key(env, "OTHER") is False  # 注释行不算
+
+
+def test_validate_rejects_disabled_and_reserved_role_targets():
+    registry = pr.default_registry()
+    registry.annotation_provider = "minimax"
+    registry.decision_provider = "tencent"
+    errors = pr.validate(registry)
+    assert any("annotation" in error and "未启用" in error for error in errors)
+    assert any("decision" in error and "reserved" in error for error in errors)

@@ -44,6 +44,9 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
+from agentkit.cache import CacheManager
+from agentkit.fetch import no_redirect_opener
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://dianshi.opendatalab.org.cn"
@@ -57,6 +60,7 @@ CACHE_TTL_SECONDS = 7 * 24 * 3600
 Transport = Callable[[str, str, Mapping[str, str], Optional[bytes], float], "RawResponse"]
 
 _rpc_ids = itertools.count(1)
+_OPENER = no_redirect_opener()
 
 
 @dataclass(frozen=True)
@@ -72,7 +76,7 @@ def default_transport(
     """urllib 诚实实现：不伪造 UA，3xx 原样返回。"""
     request = urllib.request.Request(url, data=body, headers=dict(headers), method=method)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as resp:
+        with _OPENER.open(request, timeout=timeout) as resp:
             return RawResponse(status=resp.status, headers=dict(resp.headers), body=resp.read())
     except urllib.error.HTTPError as exc:
         return RawResponse(status=exc.code, headers=dict(exc.headers or {}), body=exc.read() or b"")

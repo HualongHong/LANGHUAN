@@ -89,9 +89,14 @@ def test_runner_receives_page_range_and_auto_layout(client, tmp_path):
     assert seen["auto_layout"] is True
 
 
-def test_bad_page_range_rejected(client):
+def test_bad_page_range_rejected(client, tmp_path):
     resp = _upload(client, page_range="abc")
     assert resp.status_code == 400
+    assert list((tmp_path / "jobs").iterdir()) == []  # 400 不留下 pending 孤儿作业
+
+
+def test_inverted_page_range_rejected(client):
+    assert _upload(client, page_range="9,2").status_code == 400
 
 
 def test_missing_job_404(client):
@@ -125,3 +130,22 @@ def test_restart_recovers_job_index(client, tmp_path):
     c2 = TestClient(create_app(work_root=tmp_path / "jobs", runner=_fake_runner))
     job = c2.get(f"/api/v1/jobs/{job_id}").json()
     assert job["status"] == "succeeded"
+
+
+def test_job_store_keeps_memory_unchanged_when_disk_update_fails(tmp_path, monkeypatch):
+    from archive_plate_assembler.api_server.app import JobStore
+
+    store = JobStore(tmp_path / "jobs")
+    job_id, _ = store.create()
+
+    def fail_write(*args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("archive_plate_assembler.api_server.app._atomic_write_json", fail_write)
+    try:
+        store.update(job_id, status="running")
+    except OSError:
+        pass
+    else:
+        raise AssertionError("expected disk failure")
+    assert store.get(job_id)["status"] == "pending"

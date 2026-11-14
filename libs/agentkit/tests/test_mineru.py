@@ -226,3 +226,17 @@ class TestLedgerAndMisc:
         client = MinerUClient(transport=fake, sleeper=lambda s: None, poll_interval=0)
         doc = client.parse_url("https://cdn.example/demo.pdf", mode="flash")
         assert doc.markdown == "# url-md\n"
+
+    def test_unknown_file_mode_is_rejected_before_transport(self, tmp_path):
+        fake = FakeTransport({})
+        client = MinerUClient(transport=fake)
+        with pytest.raises(MinerUError, match="unknown mode"):
+            client.parse_file(str(_make_pdf(tmp_path)), mode="bogus")
+        assert fake.calls == []
+
+    def test_unknown_url_mode_is_rejected_before_transport(self):
+        fake = FakeTransport({})
+        client = MinerUClient(transport=fake)
+        with pytest.raises(MinerUError, match="unknown mode"):
+            client.parse_url("https://cdn.example/demo.pdf", mode="bogus")
+        assert fake.calls == []

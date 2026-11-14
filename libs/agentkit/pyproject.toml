@@ -7,7 +7,7 @@ name = "langhuan-agentkit"
 version = "0.1.0.dev0"
 description = "LangHuan suite shared scaffolding: host-agent job queue (bridge), non-interactive agent entry skeleton (agent_entry), unified LLM layer (llm), content-hash cache (cache), explicit env/YAML config loading (config), CITATION.md provenance (citation), online-source quota governance (quota), a generic HTTP fetch layer (fetch) and an optional host-broker credential seam with fail-open .env fallback (credentials)."
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "LangHuan Suite" }]
 # agentkit 核心（bridge/agent_entry/cache/config/citation 及 llm 的注册表/
 # 客户端/清洗）仅依赖标准库，保证 vendor 进技能 zip 后自包含；HTTP provider
@@ -31,6 +31,6 @@ packages = [
     "agentkit.llm",
     "agentkit.llm.providers",
     "agentkit.packaging",
-    "agentkit.quota",
-    "agentkit.fetch",
 ]
+# agentkit 包会自动携带其顶层单文件模块；quota/fetch 是模块而非子包，
+# 误写进 packages 会让 setuptools 在构建前直接报目录不存在。

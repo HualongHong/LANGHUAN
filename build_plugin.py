@@ -87,7 +87,7 @@ SKILL_LAYOUTS = {
     },
     "percolation-scout": {
         "dirs": ["percolation-scout", "scripts"],
-        "files": ["SKILL.md", "requirements.txt"],
+        "files": ["SKILL.md", "requirements.txt", ".env.example"],
         "exclude": [],
         "wheel": False,
         "green_install": True,

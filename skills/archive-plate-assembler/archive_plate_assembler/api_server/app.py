@@ -84,10 +84,11 @@ class JobStore:
         # 磁盘写入必须在锁内、内存发布之前完成：否则观察者先看到内存新状态、
         # 磁盘还是旧状态（测试/外部轮询读文件时出现 running≠succeeded 竞态）。
         with self._lock:
-            job = self._jobs.setdefault(job_id, {"job_id": job_id})
-            job.update(fields)
-            job = dict(job)
+            current = self._jobs.setdefault(job_id, {"job_id": job_id})
+            job = {**current, **fields}
             _atomic_write_json(self.work_root / job_id / "job_status.json", job)
+            # 先落盘再发布内存状态；写盘失败时外部与内存都保留旧状态。
+            self._jobs[job_id] = job
         return job
 
     def get(self, job_id: str) -> dict | None:
@@ -126,13 +127,6 @@ def create_app(work_root: Path | str = DEFAULT_WORK_ROOT,
     ) -> JSONResponse:
         if not files or all(not f.filename for f in files):
             raise HTTPException(400, "至少上传一个 PDF 文件")
-        job_id, job_dir = store.create()
-        input_dir = job_dir / "input"
-        pdfs = []
-        for f in files:
-            target = input_dir / Path(f.filename).name
-            target.write_bytes(await f.read())
-            pdfs.append(str(target))
         kwargs: dict = {"auto_layout": True, "verify": verify}
         if source_book:
             kwargs["source_book"] = source_book
@@ -141,9 +135,20 @@ def create_app(work_root: Path | str = DEFAULT_WORK_ROOT,
         if page_range:
             try:
                 start, end = (int(x) for x in page_range.split(",", 1))
+                if end < start:
+                    raise ValueError("inverted page range")
                 kwargs["page_range"] = (start, end)
             except ValueError:
-                raise HTTPException(400, "page_range 格式应为 起,止（含端点）")
+                raise HTTPException(400, "page_range 格式应为 起,止（含端点），且止不小于起")
+
+        # 所有表单校验先于建作业和写上传文件，避免 400 请求留下 pending 孤儿作业。
+        job_id, job_dir = store.create()
+        input_dir = job_dir / "input"
+        pdfs = []
+        for f in files:
+            target = input_dir / Path(f.filename).name
+            target.write_bytes(await f.read())
+            pdfs.append(str(target))
         threading.Thread(target=_run_job, args=(job_id, job_dir, {
             "pdfs": pdfs, "kwargs": kwargs}), daemon=True).start()
         return JSONResponse({"job_id": job_id, "status": "pending"}, status_code=202)

@@ -149,7 +149,9 @@ def run_entry(args: argparse.Namespace, run_fn: Callable[[argparse.Namespace], D
     summary: Dict[str, Any] = {"ok": False, "mode": getattr(args, "mode", None)}
     try:
         summary.update(run_fn(args))
-        summary["ok"] = True
+        # 包装 linter/selfcheck 的子命令用 exit_code 传递领域失败；run_entry
+        # 必须同步 ok 与进程退出码，不能仅因函数未抛异常就报告成功。
+        summary["ok"] = summary.get("exit_code", 0) == 0
     except Exception as exc:
         summary["error"] = f"{type(exc).__name__}: {exc}"
         summary["traceback"] = traceback.format_exc().splitlines()[-SUMMARY_TRACEBACK_LINES:]

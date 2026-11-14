@@ -42,6 +42,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Mapping, Optional, Tuple
 
+from agentkit.cache import CacheManager
+from agentkit.fetch import no_redirect_opener
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.sciverse.space"
@@ -50,6 +53,7 @@ ENV_TOKEN = "SCIVERSE_API_TOKEN"  # 官方 SDK 环境变量名，作兼容回落
 ENV_BASE = "SCIVERSE_BASE_URL"
 CREDENTIALS_PATH = Path.home() / ".sciverse" / "credentials.json"
 CACHE_TTL_SECONDS = 7 * 24 * 3600
+_OPENER = no_redirect_opener()
 
 # Transport: (method, url, headers, body, timeout) -> RawResponse
 Transport = Callable[[str, str, Mapping[str, str], Optional[bytes], float], "RawResponse"]
@@ -68,7 +72,7 @@ def default_transport(
     """urllib 诚实实现：不伪造 UA，3xx 原样返回。"""
     request = urllib.request.Request(url, data=body, headers=dict(headers), method=method)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as resp:
+        with _OPENER.open(request, timeout=timeout) as resp:
             return RawResponse(status=resp.status, headers=dict(resp.headers), body=resp.read())
     except urllib.error.HTTPError as exc:
         return RawResponse(status=exc.code, headers=dict(exc.headers or {}), body=exc.read() or b"")
@@ -215,8 +219,13 @@ class SciverseClient:
         cache_key = f"sciverse:resource:{file_name}"
         cached = self._cache_get(cache_key)
         if cached is not None:
-            raw = base64.b64decode(cached["b64"])
-            return raw, cached.get("mime", "image/png")
+            try:
+                raw = base64.b64decode(cached["b64"], validate=True)
+            except (KeyError, TypeError, ValueError):
+                # 缓存可损坏：忽略坏条目并回源，不让增强层中断主管线。
+                self._fail(f"invalid cached resource payload: {file_name}")
+            else:
+                return raw, cached.get("mime", "image/png")
         query = urllib.parse.urlencode({"file_name": file_name})
         raw = self._get_bytes(f"{self._base}/resource?{query}")
         if raw is None:

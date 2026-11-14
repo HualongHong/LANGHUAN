@@ -103,6 +103,25 @@ class TestDatasourceModes:
         assert len(records) == 3  # max_records 截断
         assert [r["DI"] for r in records] == ["10.1/0", "10.1/1", "10.1/2"]
 
+    def test_search_mode_passes_next_cursor_to_following_request(self, tmp_path):
+        job = tmp_path / "job.json"
+        job.write_text(json.dumps({"mode": "search", "query": "attention", "max_records": 2, "page_size": 1}))
+        calls = []
+
+        def paginated(**kwargs):
+            calls.append(kwargs)
+            if kwargs["cursor"] is None:
+                return {"results": [{**PAPER, "doi": "10.1/first"}], "next_cursor": "cursor-2"}
+            assert kwargs["cursor"] == "cursor-2"
+            return {"results": [{**PAPER, "doi": "10.1/second"}], "next_cursor": None}
+
+        records = load_sciverse_records(str(job), client=type("Client", (), {"search_metadata": staticmethod(paginated)})())
+        assert [r["DI"] for r in records] == ["10.1/first", "10.1/second"]
+        assert [call["cursor"] for call in calls] == [None, "cursor-2"]
+
+    def test_invalid_year_is_ignored_instead_of_breaking_mapping(self):
+        assert record_from_paper({**PAPER, "publication_published_year": "unknown"})["TI"] == PAPER["title"]
+
 
 class TestEnrichRecords:
     def _records(self):

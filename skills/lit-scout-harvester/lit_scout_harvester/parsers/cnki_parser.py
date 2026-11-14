@@ -275,7 +275,9 @@ def parse_cnki_plaintext(
         raise CNKIParseError(f"File not found: {path}")
 
     try:
-        text = path.read_text(encoding=encoding, errors="replace")
+        # 必须先严格解码：errors="replace" 会把 GBK 字节静默替换成乱码，
+        # 导致下面的 GBK 回退永远无法触发。
+        text = path.read_text(encoding=encoding)
     except UnicodeDecodeError:
         text = path.read_text(encoding="gbk", errors="replace")
 

@@ -67,7 +67,10 @@ def record_from_paper(hit: Dict[str, Any]) -> Dict[str, Any]:
         record["SO"] = str(venue)
     year = hit.get("publication_published_year")
     if year:
-        record["PY"] = int(year)
+        try:
+            record["PY"] = int(year)
+        except (TypeError, ValueError):
+            logger.warning("sciverse: 忽略非法出版年份 %r", year)
     doi = hit.get("doi")
     if doi:
         record["DI"] = str(doi)
@@ -110,12 +113,14 @@ def _load_search_mode(job: Dict[str, Any], client: SciverseClient) -> List[Dict[
     page_size = min(int(job.get("page_size") or 25), 50)  # 服务端上限 50
     records: List[Dict[str, Any]] = []
     page = 1
+    cursor = None
     while len(records) < max_records:
         out = client.search_metadata(
             query=job.get("query"),
             filters=job.get("filters"),
             page=page,
             page_size=page_size,
+            cursor=cursor,
         )
         if not out:
             logger.warning("sciverse datasource: search 第 %d 页失败，返回已拿到的 %d 条", page, len(records))
@@ -130,8 +135,12 @@ def _load_search_mode(job: Dict[str, Any], client: SciverseClient) -> List[Dict[
         total_pages = out.get("total_pages")
         if isinstance(total_pages, int) and page >= total_pages:
             break
-        if not isinstance(total_pages, int) and not out.get("next_cursor") and len(results) < page_size:
+        next_cursor = out.get("next_cursor")
+        if not isinstance(total_pages, int) and not next_cursor and len(results) < page_size:
             break
+        if next_cursor:
+            # 游标响应不能只递增 page：否则会反复请求第一页并重复计数。
+            cursor = str(next_cursor)
         page += 1
     return records
 

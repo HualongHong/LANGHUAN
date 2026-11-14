@@ -117,3 +117,11 @@ def test_parse_cnki_plaintext_to_list(tmp_path, refworks_text):
 def test_parse_cnki_file_not_found():
     with pytest.raises(CNKIParseError):
         parse_cnki_plaintext_to_list("nonexistent.cnki.txt")
+
+
+def test_gbk_file_uses_fallback_instead_of_replacement_characters(tmp_path, refworks_text):
+    path = tmp_path / "gbk.cnki.txt"
+    path.write_bytes(refworks_text.encode("gbk"))
+    records = parse_cnki_plaintext_to_list(str(path))
+    assert records[0]["TI"] == "科学教育中学生概念转变的实证研究"
+    assert "�" not in records[0]["TI"]

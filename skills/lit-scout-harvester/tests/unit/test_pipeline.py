@@ -43,3 +43,11 @@ async def test_pipeline_flags_low_confidence(default_config, tmp_path):
     records = [{"UT": "WOS:test", "AU": ["Smith, J"], "TI": "Title", "AB": "Abstract"}]
     contexts = await scheduler.run(records)
     assert "low_confidence" in contexts[0].flags
+
+
+def test_language_identifier_is_ready_before_translator_construction(default_config, tmp_path):
+    default_config.skeleton.translate_to_chinese = True
+    scheduler = PipelineScheduler(default_config, CacheManager(str(tmp_path / "cache.db")))
+    assert scheduler._language_identifier is not None
+    assert scheduler._translator is not None
+    assert scheduler._translator.identifier == scheduler._language_identifier.identify

@@ -10,9 +10,8 @@
  * 宿主插件（dsh-plugin / trae-plugin / workbuddy-plugin / kimi-plugin）
  * 只实现各自的"配置从哪来 + 卡片怎么画"，核心语义在此单点维护。
  *
- * 注意：dsh-plugin 目前仍内嵌同源的 4 个文件（lib/presets.js 等）——
- * 因其已硬链接部署进 DSH desktop profile，改文件结构需重装插件，
- * 去重迁移见 BACKLOG「dsh-plugin 切 plugin-core」。
+ * dsh-plugin 与 TRAE 扩展均从这里消费同一份实现，避免各宿主的
+ * 配置校验与落盘语义漂移。
  */
 export {
   DEFAULT_ANNOTATION_PROVIDER,

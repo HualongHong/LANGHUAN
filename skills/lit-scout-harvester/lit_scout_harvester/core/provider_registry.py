@@ -394,6 +394,12 @@ def validate(registry: ProviderRegistry) -> List[str]:
         if entry is None:
             errors.append(f"角色 {role} 指向不存在的 provider: {slot}")
             continue
+        # 与 plugin-core.validateConfig 保持同一契约：预留或未启用的入口
+        # 不能被角色槽静默选中，否则设置卡片拒绝后 Python 侧仍会接受。
+        if not entry.enabled:
+            errors.append(f"角色 {role} 指向的 provider '{slot}' 未启用")
+        if entry.reserved:
+            errors.append(f"角色 {role} 指向的 provider '{slot}' 是 reserved 预留入口，禁止选用")
         if role == ROLE_DECISION and not entry.supports_logprobs:
             errors.append(
                 f"决策角色 provider '{slot}' 不支持 logprobs（阶段 B 概率输出必需）"

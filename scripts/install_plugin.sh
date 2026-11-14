@@ -139,7 +139,7 @@ cmd_install() {
   cat <<EOF
 
 完成。技能目录: $TARGET
-  - 4 个 langhuan-* 技能已就绪，重启宿主 Agent 后按各自 triggers 唤起。
+  - ${#MEMBERS[@]} 个 langhuan-* 技能已就绪，重启宿主 Agent 后按各自 triggers 唤起。
   - key 只需填一处: $central
   - 查看分发状态: ls -li "$central" "$TARGET"/$SKILL_PREFIX*/.env | awk '{print \$1, \$NF}'
 EOF

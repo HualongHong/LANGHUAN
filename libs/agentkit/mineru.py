@@ -47,6 +47,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Mapping, Optional
 
+from agentkit.fetch import no_redirect_opener
+
 logger = logging.getLogger(__name__)
 
 FLASH_BASE_URL = "https://mineru.net/api/v1/agent"
@@ -61,6 +63,8 @@ FLASH_MAX_BYTES = 10 * 1024 * 1024
 
 #: token 档轮询中的"未完成"状态。
 _PENDING_STATES = {"waiting-file", "uploading", "pending", "running", "converting"}
+_OPENER = no_redirect_opener()
+_VALID_MODES = frozenset({"auto", "flash", "token", "local"})
 
 
 class MinerUError(Exception):
@@ -96,7 +100,7 @@ class MinerUDoc:
 
 
 # Transport: (method, url, headers, body, timeout) -> RawResponse
-Transport = Callable[[str, str, Mapping[str, Optional[bytes]], float], "RawResponse"]
+Transport = Callable[[str, str, Mapping[str, str], Optional[bytes], float], "RawResponse"]
 Sleeper = Callable[[float], None]
 
 
@@ -115,7 +119,7 @@ def default_transport(
     """urllib 诚实实现：不伪造 UA，3xx 原样返回（MinerU 端点无重定向需求）。"""
     request = urllib.request.Request(url, data=body, headers=dict(headers), method=method)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as resp:
+        with _OPENER.open(request, timeout=timeout) as resp:
             return RawResponse(status=resp.status, headers=dict(resp.headers), body=resp.read())
     except urllib.error.HTTPError as exc:
         return RawResponse(status=exc.code, headers=dict(exc.headers or {}), body=exc.read() or b"")
@@ -223,6 +227,8 @@ class MinerUClient:
         p = Path(path)
         if not p.is_file():
             raise MinerUError(f"file not found: {path}")
+        if mode not in _VALID_MODES:
+            raise MinerUError(f"unknown mode {mode!r}; expected auto/flash/token/local")
         if mode != "auto":
             # 显式指定档位：错误原样上抛（调用方要的就是这一档的成败）。
             doc = self._parse_file_with_tier(
@@ -255,6 +261,8 @@ class MinerUClient:
         enable_formula: bool = False,
     ) -> MinerUDoc:
         """解析公开可访问的文件 URL（两云端档均支持；local 档不适用）。"""
+        if mode not in _VALID_MODES:
+            raise MinerUError(f"unknown mode {mode!r}; expected auto/flash/token/local")
         if mode != "auto":
             if mode == "local":
                 raise MinerUError("mode 'local' does not support URL input")
