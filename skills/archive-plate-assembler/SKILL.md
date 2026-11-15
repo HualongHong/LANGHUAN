@@ -109,9 +109,17 @@ APA_JOB_DIR=<job_dir> streamlit run archive_plate_assembler/review_ui/app.py
   PDF，把高保真 OCR 文本注入抽取 prompt（描述可直接润色采用，学名/数字仍以
   图像核对）。`APA_DECODER=local` 完全禁用（零请求、行为与未接入逐字节一致）；
   平台全部不可用时自动回落视觉路径。`APA_DECODER_TEXT_ONLY=1`（实验）对解码
-  确认无图片块的页用纯文本调用角色 A（省视觉 token）。token 档凭据
-  `MINERU_API_TOKEN`（中央 langhuan.env）；`scripts/doctor.py` platforms 组
-  可体检可达性。本地视觉备选：InternVL 经 vLLM 自托管，角色 A 切
+  确认无图片块的页用纯文本调用角色 A（省视觉 token）；真实图鉴降本/质量
+  A/B 实测用 `scripts/decoder_benchmark.py`，流程见 `data/golden_set/DECODER_BENCHMARK.md`。token 档凭据
+  `MINERU_API_TOKEN`（中央 langhuan.env）。每日任务/页数账本写入
+  `job_dir/quota_state/mineru_quota.json`；`scripts/doctor.py` platforms 组可体检
+  可达性并展示 UTC 当日用量，token 档达到 1000 页日额度的 80% / 100% 时预警。
+  非默认输出位置可设 `LANGHUAN_MINERU_QUOTA=<job_dir 或 quota_state 路径>`。
+  本地视觉备选：InternVL 经 vLLM 自托管，角色 A 切
   `APA_ROLE_A_PROVIDER=openai_compatible` + `MINIMAX_*` 指向本地端点即可
   （LSH providers.json 亦有 `internvl_local` 预设可参考）。
+- **黄金集标注**：LabelU rectTool 可通过 `scripts/labelu_bridge.py` 转为条目参考图，
+  矩形的 label 使用 APA entry_id；字段仍在 review_ui 复核。完整流程见
+  `data/golden_set/LABELU_WORKFLOW.md`（不引入 LabelU 代码依赖）。
+- **黄金集评估**：`python -m archive_plate_assembler.evaluation.golden --gold corrected_species.json --predicted species.json --output evaluation.json` 输出字段级 PRF、Schema 合规率与未匹配清单，口径见 `data/golden_set/README.md`。
 - 设计文档见 `dev-docs/archive/archive-plate-assembler/`（本地归档，不入库）（设定书/规划书/移交备忘录）。

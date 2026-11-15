@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -85,3 +86,107 @@ async def test_term_extractor_caches_result(mock_llm_client_and_cache):
     result = await extractor.process(ctx2, {"schema_path": "lit_scout_harvester/schemas/sci_edu.json"})
     assert called is False
     assert result["research_topic"]["value"] == ["conceptual change"]
+
+
+class CountingLLM:
+    def __init__(self):
+        self.calls = 0
+
+    async def chat(self, *args, **kwargs):
+        self.calls += 1
+        return json.dumps({"results": [{"topic": ["fresh"]}]})
+
+
+def _prompt_cache_schema():
+    return {
+        "name": "shared_schema_name",
+        "description": "original prompt",
+        "fields": [{"name": "topic", "type": "list[str]", "description": "Topic"}],
+    }
+
+
+@pytest.mark.parametrize("change", ["schema", "language", "hints", "model"])
+@pytest.mark.asyncio
+async def test_prompt_changes_invalidate_single_record_cache(tmp_path, change):
+    llm = CountingLLM()
+    extractor = TermExtractorModule(llm, CacheManager(str(tmp_path / "cache.db")))
+    ctx = PipelineContext("r1", {"TI": "T", "AB": "A"}, object())
+    config = {"schema": _prompt_cache_schema(), "schema_path": "unused.json"}
+    await extractor.process(ctx, config)
+    if change == "schema":
+        config["schema"]["description"] = "changed prompt"
+    elif change == "language":
+        config["output_language"] = "zh"
+    elif change == "hints":
+        config["extra_prompt_hints"] = ["Use only explicit evidence."]
+    else:
+        config["model_profile"] = "alternate"
+    await extractor.process(ctx, config)
+    assert llm.calls == 2
+    await extractor.process(ctx, config)
+    assert llm.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_schema_change_invalidates_batch_record_cache(tmp_path):
+    llm = CountingLLM()
+    extractor = TermExtractorModule(llm, CacheManager(str(tmp_path / "cache.db")))
+    ctx = PipelineContext("r1", {"TI": "T", "AB": "A"}, object())
+    config = {"schema": _prompt_cache_schema(), "schema_path": "unused.json"}
+    await extractor.process_batch([ctx], config)
+    config["schema"]["description"] = "changed batch prompt"
+    await extractor.process_batch([ctx], config)
+    assert llm.calls == 2
+    await extractor.process_batch([ctx], config)
+    assert llm.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_model_change_inside_profile_invalidates_cache(tmp_path):
+    llm = CountingLLM()
+    profile = SimpleNamespace(provider="deepseek", model="model-a")
+    llm.config = SimpleNamespace(
+        provider="deepseek", model="primary", models={"shared": profile}
+    )
+    extractor = TermExtractorModule(llm, CacheManager(str(tmp_path / "cache.db")))
+    ctx = PipelineContext("r1", {"TI": "T", "AB": "A"}, object())
+    config = {
+        "schema": _prompt_cache_schema(),
+        "schema_path": "unused.json",
+        "model_profile": "shared",
+    }
+    await extractor.process(ctx, config)
+    profile.model = "model-b"
+    await extractor.process(ctx, config)
+    assert llm.calls == 2
+    await extractor.process(ctx, config)
+    assert llm.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_fallback_chain_bypasses_outer_cache(tmp_path):
+    llm = CountingLLM()
+    llm.has_fallbacks = lambda profile: True
+    extractor = TermExtractorModule(llm, CacheManager(str(tmp_path / "cache.db")))
+    ctx = PipelineContext("r1", {"TI": "T", "AB": "A"}, object())
+    config = {"schema": _prompt_cache_schema(), "schema_path": "unused.json"}
+    await extractor.process(ctx, config)
+    await extractor.process(ctx, config)
+    assert llm.calls == 2
+    llm.has_fallbacks = lambda profile: False
+    await extractor.process(ctx, config)
+    assert llm.calls == 3
+    await extractor.process(ctx, config)
+    assert llm.calls == 3
+
+
+@pytest.mark.asyncio
+async def test_fallback_chain_bypasses_batch_outer_cache(tmp_path):
+    llm = CountingLLM()
+    llm.has_fallbacks = lambda profile: True
+    extractor = TermExtractorModule(llm, CacheManager(str(tmp_path / "cache.db")))
+    ctx = PipelineContext("r1", {"TI": "T", "AB": "A"}, object())
+    config = {"schema": _prompt_cache_schema(), "schema_path": "unused.json"}
+    await extractor.process_batch([ctx], config)
+    await extractor.process_batch([ctx], config)
+    assert llm.calls == 2

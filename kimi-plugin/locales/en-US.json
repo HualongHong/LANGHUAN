@@ -1,0 +1,16 @@
+{
+  "displayName": "LangHuan Provider Configuration",
+  "shortDescription": "LangHuan config sync",
+  "longDescription": "Reads the LangHuan central providers.json (~/.agents/skills/langhuan-lit-scout-harvester/config/providers.json) and syncs enabled, non-reserved OpenAI-compatible providers into Kimi Code's config.toml. Each provider becomes a [providers.\"langhuan-<id>\"] table (type/base_url/api_key_env), and each model becomes a [models.\"langhuan-<id>--<model>\"] table. Secrets are referenced only by api_key_env variable names, which Kimi resolves from its process environment; scripts and configuration files never contain plaintext keys. Content outside the managed marker block is preserved, and repeated runs are idempotent.",
+  "developerName": "LangHuan Suite",
+  "tryPrompts": [
+    "/langhuan-provider-card:set-provider",
+    "/langhuan-provider-card:show-provider"
+  ],
+  "skillOverrides": {
+    "provider-config": {
+      "displayName": "Provider Configuration Guide",
+      "description": "Field mapping, synchronization workflow, and API-key environment variable setup for providers.json and Kimi Code config.toml"
+    }
+  }
+}

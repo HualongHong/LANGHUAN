@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from agentkit.mineru import (
     MinerURateLimited,
     MinerUTaskFailed,
     RawResponse,
+    load_usage_today,
 )
 
 
@@ -56,6 +58,7 @@ def _flash_routes() -> dict:
         data = {"code": 0, "data": {"task_id": "t-flash", "state": state}}
         if state == "done":
             data["data"]["markdown_url"] = "https://cdn.example/full.md"
+            data["data"]["total_pages"] = 2
         return _json(data)
 
     def md(self, m, url, headers, body):
@@ -70,11 +73,14 @@ def _flash_routes() -> dict:
     }
 
 
-def _zip_bytes(md: str = "# zip-md\n", with_images: bool = True) -> bytes:
+def _zip_bytes(
+    md: str = "# zip-md\n", with_images: bool = True, content_list: list | None = None
+) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("demo/full.md", md)
-        zf.writestr("demo/demo_content_list.json", json.dumps([{"type": "text"}]))
+        blocks = content_list if content_list is not None else [{"type": "text"}]
+        zf.writestr("demo/demo_content_list.json", json.dumps(blocks))
         if with_images:
             zf.writestr("demo/images/img_1.png", b"PNG")
     return buf.getvalue()
@@ -214,7 +220,32 @@ class TestLedgerAndMisc:
         client.parse_file(str(_make_pdf(tmp_path)), mode="flash")
         usage = client.usage_today()
         assert usage.get("flash_tasks") == 1
+        assert usage.get("flash_pages") == 2
         assert (tmp_path / "mineru_quota.json").exists()
+
+    def test_token_ledger_derives_pages_from_content_list(self, tmp_path):
+        body = _zip_bytes(content_list=[
+            {"type": "text", "page_idx": 0},
+            {"type": "text", "page_idx": 2},
+        ])
+        client = MinerUClient(
+            token="tk-test", transport=FakeTransport(_token_routes(body)),
+            sleeper=lambda s: None, poll_interval=0, state_dir=tmp_path,
+        )
+        client.parse_file(str(_make_pdf(tmp_path)), mode="token")
+        assert client.usage_today()["token_pages"] == 3
+        assert load_usage_today(tmp_path)["token_tasks"] == 1
+
+    def test_load_usage_uses_utc_day_and_rejects_bad_payload(self, tmp_path):
+        path = tmp_path / "mineru_quota.json"
+        path.write_text(json.dumps({
+            "2026-11-15": {"token_pages": 800, "token_tasks": 2, "bad": "900"},
+            "2026-11-14": {"token_pages": 1000},
+        }), encoding="utf-8")
+        now = datetime(2026, 11, 15, 23, 59, tzinfo=timezone.utc)
+        assert load_usage_today(tmp_path, now=now) == {"token_pages": 800, "token_tasks": 2}
+        path.write_text("not-json", encoding="utf-8")
+        assert load_usage_today(tmp_path, now=now) == {}
 
     def test_parse_url_flash(self):
         def submit(self, m, url, headers, body):

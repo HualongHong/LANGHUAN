@@ -95,6 +95,7 @@ async def test_llm_client_uses_fallback_on_failure(tmp_path, monkeypatch):
 
     result = await client.chat(messages=[{"role": "user", "content": "hi"}])
     assert result == "fallback-ok"
+    assert client.has_fallbacks() is True
 
 
 @pytest.mark.asyncio

@@ -452,6 +452,22 @@ Beijing,CHN,China,city,北京;Peking
 地区别名，含中英文），供测试与开箱即用；生产使用请换 GeoNames 全量导出
 （约 1,200 万条含别名），同名别名先注册者优先。
 
+使用 `scripts/dataset_pack.py` 生成或从可信来源取得的 OpenDataLab 包，可将
+`gazetteer_path` 替换为 `gazetteer_package: /path/to/package`。加载前会核验
+`MANIFEST.sha256`、`preflight.json`、实际文件哈希及 metafile/preflight 的许可证一致性；
+许可未确认、路径越界或内容被修改都会中止加载。校验用于发现损坏和篡改，**不等于
+发布者身份认证**，仍需自行信任下载来源并遵守数据许可证。
+
+国家别名也可在 Python API 中复用同一个已验证包：
+
+```python
+from lit_scout_harvester.utils.country import CountryNormalizer
+normalizer = CountryNormalizer(package_path="/path/to/package")
+```
+
+`data_path`/`alias_path` 与 `package_path` 互斥，避免静默混用来源；国家别名包仍会在
+内置别名之后加载，同名外部别名按既有规则覆盖内置映射。
+
 国别统计口径见 `config/caliber.json` 的 `counting` 段（默认主口径
 **fractional**：按作者数加权，每国得 作者数/n；备选 `whole_count` 每国计 1；
 `first_author` 仅作历史对照、显式开启才输出）。`network_builder` 产出
@@ -470,7 +486,7 @@ Beijing,CHN,China,city,北京;Peking
    每条记录会调用一次 LLM（在缓存命中的情况下除外）。432 条约需 5–10 元（以 DeepSeek 当前价格估算）。
 
 3. **启用缓存**  
-   默认缓存已启用，相同文本+schema+prompt_version 不会重复调用 API。如果修改了 schema，请修改 `prompt_version` 或在 `data/cache/` 删除对应缓存库以刷新。
+   默认缓存已启用，相同单记录实际 prompt + 请求模型身份 + prompt_version 不会重复调用 API。Schema 内容、额外提示、输出语言、全文证据或 provider/model 变化会自动生成新缓存键，无需手工删除缓存库；`prompt_version` 仍可用于显式实验分组。启用 fallback 时，外层结果缓存自动停用，改由底层按实际 provider/model/endpoint 缓存，避免备用模型结果被归到主模型。
 
 4. **观察复核队列**  
    正式数据跑完后，先 review 低置信度记录，再决定是否调整 schema 或 gold labels。
@@ -491,7 +507,6 @@ Beijing,CHN,China,city,北京;Peking
 | **fastText 语种检测** | `lid.176.ftz` 模型因网络原因未下载，当前 fallback 为 `langdetect`。 | 运行 `python scripts/download_fasttext_model.py --verify --update-config config/default.yaml`。 |
 | **地理编码** | 默认启用本地 microservice（端口 8000）。若未启动，可配置 `use_llm_fallback: true`。 | 启动 `microservices/geodisambiguation/` 服务或关闭 geocoder。 |
 | **sampleSource 准确性** | 地点层级偏好与 gold labels 存在差异，需人工复核边界案例。 | 继续迭代 guidelines / few-shot 示例。 |
-| **缓存键不感知 schema 内容** | 缓存键只依赖 schema 文件名 + prompt_version。修改 schema 内容但保持名称不变时，旧缓存仍会命中。 | 修改 `prompt_version` 或删除缓存文件。 |
 
 ---
 
@@ -642,10 +657,10 @@ D:/opt/dev/LangHuan/skills/archive-plate-assembler/.venv/Scripts/python.exe \
 
 页面三块：
 
-1. **运营商入口**：增删改 `config/providers.json` 中的条目。预置 10 个运营商
+1. **运营商入口**：增删改 `config/providers.json` 中的条目。预置 11 个运营商
    （DeepSeek / MiniMax / 阿里云百炼 / 腾讯混元 / JEV 原厂 / 上海超算云平台·LLM /
    上海超算·类JEV决策模型 / 自建服务器（SSH 隧道）/ 阿里云百炼·模型部署 /
-   scnet.cn 超算·模型部署）；reserved 条目（腾讯混元、JEV 原厂）标灰并注
+   scnet.cn 超算·模型部署 / InternVL 本地视觉）；reserved 条目（腾讯混元、JEV 原厂）标灰并注
    「预留·不可访问」，只能禁用不可删除。上海超算两个入口为占位地址
    （`https://llm.shsc.cn/v1`），实际接入后填真实 base_url 与模型名。
 2. **角色分配**：两个角色槽各选一个 **已启用** 入口。决策模型选中不支持
@@ -654,6 +669,11 @@ D:/opt/dev/LangHuan/skills/archive-plate-assembler/.venv/Scripts/python.exe \
    命名 profile，模块侧用 `model_profile: "decision"` 引用），未选则不改动文件。
 3. **API key 管理**：每个运营商一个 password 框，「保存 key」以读-改-写方式
    追加/更新到中央 env 文件，其它行保留；密码框留空表示不改动。
+
+保存统一执行 `INVALID_INPUT` 写前校验：enabled 条目的 base_url 必须是合法
+http(s) URL；ssh_port 限 1–65535 整数，remote_port/local_port 可用 0 表示未配置；
+stdio 禁止非零端口。校验失败不会创建或覆盖既有 providers.json，disabled 预置的
+占位 URL 不影响保存。
 
 ### 16.1 两种接入新模式
 
@@ -758,11 +778,44 @@ Sciverse（5.46 亿文献/专利元数据、3071 万解析全文）是第二在�
   `{"mode": "search", "query": "...", "filters": [...], "max_records": N,
   "page_size": N}`（结构化检索发现）；命中映射为 WOS 字段码，pipeline 无感。
   `datasource: auto_detect` 对上述 job 文件自动识别。
+- **同论文全文证据增强 term_extractor**（默认关）：配置
+  `modules.term_extractor.sciverse_semantic.enabled: true` 后，以当前题名/摘要做
+  agentic-search，只有 DOI 或归一化题名一致的 chunks 才进入抽取 prompt，杜绝相邻
+  论文证据串扰；默认再经 read_content 扩展命中位置前后文，失败时保留原 chunk。
+  `top_k` / `max_chunks` / `max_context_chars` 控制请求与 prompt 成本，增强文本参与
+  LLM 缓存键；未配置 key、限频或无同论文命中时自动使用原题名/摘要抽取。
 - 凭据：`SCIVERSE_API_KEY`（中央 langhuan.env，经 `agentkit.credentials` 接缝）。
   客户端 `agentkit.sciverse.SciverseClient` 六端点（meta-search / agentic-search /
   meta-catalog / meta-paper-relations / content / resource），`read_content` 与
-  资源读取带 7 天磁盘缓存；429/5xx 返回 None 不抛穿。
+  资源读取带 7 天磁盘缓存；429/5xx 返回 None 不抛穿。429 默认最多补试一次，
+  仅在 `Retry-After ≤ 5 秒` 时等待；更长窗口直接降级并冷却，未给响应头时冷却
+  60 秒。可用 `SciverseClient(max_429_retries=0)` 关闭补试，或用
+  `max_retry_wait` 调整本地等待上限（不会提前于服务端窗口重试）。
 - `scripts/doctor.py` 的 platforms 组可体检可达性与 key 有效性。
+
+### 18.2 本地 PDF 全文摄取（MinerU，可选增强）
+
+`modules.term_extractor.local_pdf.enabled: true` 后，term_extractor 可将本地 PDF 的
+MinerU Markdown 加入抽取 prompt。记录用 `PDF` 字段给出库内相对路径；未提供时按
+DOI（其次 UT）清洗后的 `{safe_id}.pdf` 在 `root` 查找，例如 DOI `10.1000/example`
+对应 `10.1000_example.pdf`。绝对路径只允许位于 root 内，`..` 越界、非 PDF、缺失
+文件与解析失败均跳过增强，不影响原题名/摘要抽取。
+
+`mode` 支持 auto/flash/token/local；Markdown 以路径、文件大小、mtime 和 mode 生成
+缓存键，重复运行不重复解析，文件变化自动失效。`max_context_chars` 默认 12000，
+`state_dir` 可持久化 MinerU 配额账本。本地 PDF 与 Sciverse 语义证据可叠加，二者
+都进入 LLM 缓存键，任一增强层失败不会撤销另一层。
+
+### 18.3 Sciverse 可访问全文分页摄取（可选增强）
+
+`modules.term_extractor.sciverse_fulltext.enabled: true` 后，先按 DOI（其次精确题名）
+定位同一论文，仅当元数据明确返回 `is_content_accessible: true` 时才按 doc_id 调用
+read_content，无需再经 MinerU 解析。`page_chars` / `max_pages` / `max_context_chars`
+分别限制单页、页数和注入总量，默认 4096 / 3 / 12000；分页只在 next_offset 严格
+前进时继续，后续页失败保留已读取文本，首页失败则不添加全文证据。
+
+全文、语义 chunks 和本地 PDF 可独立启用并叠加，均进入 LLM 缓存键；无 key、无访问
+权限、身份不匹配或网络失败都回落原抽取路径。read_content 各页沿用 7 天磁盘缓存。
 
 ---
 

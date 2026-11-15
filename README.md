@@ -65,7 +65,7 @@ key 管理是**单入口**的：中央文件 `~/.agents/skills/langhuan.env` 经
 
 除技能形态外，LangHuan 还以各宿主的**原生插件形态**接入，把模型运营商注册表、标注/决策角色槽与密钥环境变量名纳入宿主的设置体系，统一落盘为 lit-scout-harvester 的 `providers.json`。技能形态管「怎么干活」，宿主插件形态管「用哪个模型入口、key 叫什么名字」；两者经 `providers.json` + 中央 `langhuan.env` 只读耦合，互不依赖。
 
-共享核心为 [`plugin-core/`](plugin-core/)（`@langhuan/plugin-core`：10 家运营商预置 + 配置解析校验 + providers.json 原子落盘，宿主无关、零依赖）。
+共享核心为 [`plugin-core/`](plugin-core/)（`@langhuan/plugin-core`：11 家运营商预置 + 配置解析校验 + providers.json 原子落盘，宿主无关、零依赖）。
 
 #### DSH（DeepSeek Harness）—— 原生设置卡片
 
@@ -136,6 +136,13 @@ python scripts/build_host_plugin.py               # 构建 WorkBuddy/Trae 宿主
 - **绝不要删除** `~/.agents/skills/langhuan-lit-scout-harvester/`——中央
   `langhuan.env` 与各技能 `.env` 的硬链接、`config/providers.json` 都在这棵树里，
   删了所有宿主的 key 通道一起断（可用 `install_plugin.sh` 的 `sync-env` 修复，但没必要走这一遭）。
+
+运行 `python3 scripts/doctor.py --offline` 的 `origins` 组可只读检查 WorkBuddy/TRAE 的共享技能、
+宿主技能和插件技能是否同名重叠，并识别 TRAE `skill-config.json` 的 `disabledSkills`。
+WARN 表示可能重复命中，仍需用户在宿主 UI 中确认和停用；doctor 不会自动修改活部署。
+自定义目录可用 `LANGHUAN_SKILLS_DIR`、`LANGHUAN_WORKBUDDY_HOME`、`LANGHUAN_TRAE_HOME`。
+`--offline` 跳过 MinerU/Sciverse/Dianshi 网络探测但保留本地配额看板；追加 `--json`
+可得到仅含 ok/fail/warn/offline/findings 的机器可读摘要，FAIL 时进程退出码仍为 1。
 
 ## 使用
 

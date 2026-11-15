@@ -56,13 +56,94 @@ class TestSearchMetadata:
         assert "401" in client.last_error
 
     def test_rate_limit_returns_none(self):
-        client = _client(lambda m, u, h, b: RawResponse(status=429, headers={}, body=b"{}"))
+        client = _client(
+            lambda m, u, h, b: RawResponse(status=429, headers={}, body=b"{}"),
+            max_429_retries=0,
+        )
         assert client.semantic_search(query="x") is None
         assert "429" in client.last_error
 
     def test_bad_gateway_returns_none(self):
         client = _client(lambda m, u, h, b: RawResponse(status=502, headers={}, body=b"upstream"))
         assert client.list_catalog() is None
+
+
+class TestRateLimitRetry:
+    def test_short_retry_after_retries_once_within_window(self):
+        calls = []
+        sleeps = []
+
+        def handler(m, url, headers, body):
+            calls.append(url)
+            if len(calls) == 1:
+                return RawResponse(status=429, headers={"Retry-After": "2"}, body=b"{}")
+            return _json({"hits": []})
+
+        client = _client(handler, sleeper=sleeps.append, max_retry_wait=5)
+        assert client.semantic_search(query="x") == {"hits": []}
+        assert len(calls) == 2
+        assert sleeps == [2.0]
+
+    def test_long_retry_after_skips_retry_and_blocks_cooldown_calls(self):
+        clock = {"t": 1000.0}
+        calls = []
+        sleeps = []
+        limited = {"value": True}
+
+        def handler(m, url, headers, body):
+            calls.append(url)
+            if limited["value"]:
+                return RawResponse(status=429, headers={"retry-after": "600"}, body=b"{}")
+            return _json({"fields": []})
+
+        client = _client(handler, now=lambda: clock["t"], sleeper=sleeps.append, max_retry_wait=5)
+        assert client.list_catalog() is None
+        assert client.list_catalog() is None
+        assert len(calls) == 1, "冷却窗口内不应再次请求"
+        assert sleeps == []
+        assert "cooldown" in client.last_error
+        clock["t"] += 601
+        limited["value"] = False
+        assert client.list_catalog() == {"fields": []}
+        assert len(calls) == 2
+
+    def test_exhausted_retries_fail_open_and_start_default_cooldown(self):
+        clock = {"t": 1000.0}
+        calls = []
+        sleeps = []
+
+        def handler(m, url, headers, body):
+            calls.append(url)
+            return RawResponse(status=429, headers={}, body=b"{}")
+
+        client = _client(
+            handler, now=lambda: clock["t"], sleeper=sleeps.append,
+            max_429_retries=2, max_retry_wait=5,
+        )
+        assert client.list_catalog() is None
+        assert len(calls) == 3
+        assert sleeps == [1.0, 2.0]
+        assert client.list_catalog() is None
+        assert len(calls) == 3
+        assert "60.0s" in client.last_error
+
+    def test_http_date_retry_after_is_supported(self):
+        calls = []
+        sleeps = []
+
+        def handler(m, url, headers, body):
+            calls.append(url)
+            if len(calls) == 1:
+                return RawResponse(
+                    status=429,
+                    headers={"Retry-After": "Thu, 01 Jan 1970 00:16:43 GMT"},
+                    body=b"{}",
+                )
+            return _json({"fields": []})
+
+        client = _client(handler, now=lambda: 1000.0, sleeper=sleeps.append, max_retry_wait=5)
+        assert client.list_catalog() == {"fields": []}
+        assert sleeps == [3.0]
 
 
 class TestSemanticAndRelations:

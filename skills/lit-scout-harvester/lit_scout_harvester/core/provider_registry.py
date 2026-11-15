@@ -22,6 +22,7 @@ import copy
 import json
 import os
 import re
+import urllib.parse
 from dataclasses import dataclass, field, fields as dataclass_fields
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -348,7 +349,10 @@ def load_registry(path: _PATH_LIKE) -> ProviderRegistry:
 
 
 def save_registry(path: _PATH_LIKE, registry: ProviderRegistry) -> None:
-    """原子写（临时文件 + os.replace）；字段顺序稳定，round-trip 逐字节一致。"""
+    """校验后原子写；INVALID_INPUT 不创建或覆盖目标文件。"""
+    errors = validate(registry)
+    if errors:
+        raise RegistryError("配置校验失败（INVALID_INPUT）:\n" + "\n".join(f"- {e}" for e in errors))
     path = Path(path)
     data = {
         "version": "1.0",
@@ -365,6 +369,25 @@ def save_registry(path: _PATH_LIKE, registry: ProviderRegistry) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _is_http_endpoint(value: Any) -> bool:
+    if not isinstance(value, str) or not value or any(ch.isspace() or ch in '<>"' for ch in value):
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(value)
+        hostname = parsed.hostname
+    except ValueError:
+        return False
+    return parsed.scheme.lower() in ("http", "https") and bool(hostname)
+
+
+def _is_port(value: Any, allow_zero: bool = False) -> bool:
+    return (
+        isinstance(value, int)
+        and not isinstance(value, bool)
+        and (allow_zero and value == 0 or 1 <= value <= 65535)
+    )
+
+
 def validate(registry: ProviderRegistry) -> List[str]:
     """返回错误列表（空 = 通过）。只查结构，不联网、不读 key 值。"""
     errors: List[str] = []
@@ -372,9 +395,22 @@ def validate(registry: ProviderRegistry) -> List[str]:
     for dup in sorted({i for i in ids if ids.count(i) > 1}):
         errors.append(f"provider id 重复: {dup}")
     for entry in registry.providers:
+        if entry.type == "stdio":
+            for field_name in ("ssh_port", "remote_port", "local_port"):
+                value = getattr(entry, field_name)
+                if value is not None and (value != 0 or isinstance(value, bool)):
+                    errors.append(f"INVALID_INPUT: '{entry.id}'（stdio）禁止传 {field_name}")
+        else:
+            if not _is_port(entry.ssh_port):
+                errors.append(f"INVALID_INPUT: '{entry.id}' 的 ssh_port 必须是 1-65535 的整数")
+            for field_name in ("remote_port", "local_port"):
+                if not _is_port(getattr(entry, field_name), allow_zero=True):
+                    errors.append(f"INVALID_INPUT: '{entry.id}' 的 {field_name} 必须是 0 或 1-65535 的整数")
         if entry.enabled:
             if not entry.base_url:
                 errors.append(f"'{entry.id}' 已启用但 base_url 为空")
+            elif entry.type != "stdio" and not _is_http_endpoint(entry.base_url):
+                errors.append(f"INVALID_INPUT: '{entry.id}' 的 base_url 必须是合法的 http(s) URL")
             if not entry.api_key_env:
                 errors.append(f"'{entry.id}' 已启用但 api_key_env 为空")
             if entry.type == TYPE_SSH_TUNNEL:

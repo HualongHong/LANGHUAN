@@ -2,7 +2,7 @@
  * @langhuan/plugin-core —— LangHuan 多宿主插件的共享核心。
  *
  * 与宿主无关的三件套：
- * - presets.js          10 家运营商预置表 + 出厂角色 + skillsDir 约定
+ * - presets.js          11 家运营商预置表 + 出厂角色 + skillsDir 约定
  * - resolve-config.js   配置解包（provider $ref / Volatile 引用）+ 校验
  * - write-providers.js  providers.json 原子落盘同步（内容不变跳过写入）
  * - schema-standard.js  零依赖 Standard Schema v1 配置校验器

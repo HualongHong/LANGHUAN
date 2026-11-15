@@ -37,7 +37,8 @@
             "shanghai_sc_jev",
             "ssh_selfhost",
             "aliyun_model_deploy",
-            "scnet_model_deploy"
+            "scnet_model_deploy",
+            "internvl_local"
           ],
           "enumDescriptions": [
             "（未配置）",
@@ -50,7 +51,8 @@
             "上海超算·类JEV决策模型",
             "自建服务器（SSH 隧道）",
             "阿里云百炼·模型部署",
-            "scnet.cn 超算·模型部署"
+            "scnet.cn 超算·模型部署",
+            "InternVL 本地视觉（vLLM 自托管）"
           ],
           "default": "deepseek",
           "description": "标注角色 provider id"
@@ -68,7 +70,8 @@
             "shanghai_sc_jev",
             "ssh_selfhost",
             "aliyun_model_deploy",
-            "scnet_model_deploy"
+            "scnet_model_deploy",
+            "internvl_local"
           ],
           "enumDescriptions": [
             "（未配置）",
@@ -81,7 +84,8 @@
             "上海超算·类JEV决策模型",
             "自建服务器（SSH 隧道）",
             "阿里云百炼·模型部署",
-            "scnet.cn 超算·模型部署"
+            "scnet.cn 超算·模型部署",
+            "InternVL 本地视觉（vLLM 自托管）"
           ],
           "default": "deepseek",
           "description": "决策角色 provider id（阶段 B 概率输出需 supportsLogprobs）"

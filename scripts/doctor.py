@@ -11,18 +11,21 @@
                KEY_RE 口径）：Config 只存 api_key_env 变量名，检出疑似明文
                密钥即 FAIL
   5. hosts     各宿主插件目录可见性提示（仅存在性：dsh/kimi/workbuddy/trae）
-  6. platforms OpenDataLab 体系平台可达性/凭据（MinerU flash 端点、Sciverse
+  6. origins   技能形态/宿主插件形态同名技能检测（只读，不自动停用）
+  7. platforms OpenDataLab 体系平台可达性/凭据（MinerU flash 端点、Sciverse
                key 指纹与 /meta-catalog 探测、Dianshi MCP SSO token 与 tools/list
-               探测、magic-pdf 本地档可用性）——
+               探测、magic-pdf 本地档可用性）及 MinerU 当日配额看板——
                不可达报 DEGRADED 不判 FAIL（fail-soft 语义）
 
 退出码：0 = 无 FAIL（WARN/INFO 不阻断）；1 = 存在 FAIL。
-凭证文件位置可用环境变量 LANGHUAN_SKILLS_DIR 覆盖（默认 ~/.agents/skills）。
-用法：python3 scripts/doctor.py
+凭证文件位置可用 LANGHUAN_SKILLS_DIR 覆盖（默认 ~/.agents/skills）；重复技能诊断
+可用 LANGHUAN_WORKBUDDY_HOME / LANGHUAN_TRAE_HOME 指定宿主配置目录。
+用法：python3 scripts/doctor.py [--offline] [--json]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -43,11 +46,13 @@ SKILLS_DIR = Path(os.environ.get("LANGHUAN_SKILLS_DIR", Path.home() / ".agents" 
 SUITE_ENV = "langhuan.env"
 
 _findings: list[tuple[str, str, str]] = []  # (level, group, msg)
+_json_output = False
 
 
 def emit(level: str, group: str, msg: str) -> None:
     _findings.append((level, group, msg))
-    print(f"[{level:<4}] {group:<8} {msg}")
+    if not _json_output:
+        print(f"[{level:<4}] {group:<8} {msg}")
 
 
 def check_python() -> None:
@@ -192,6 +197,69 @@ def _probe(url: str, headers: Optional[dict] = None, timeout: float = 5.0) -> Op
         return None
 
 
+MINERU_QUOTA_WARN_RATIO = 0.8
+
+
+def check_mineru_quota(
+    paths: Optional[list[Path]] = None,
+    warn_ratio: float = MINERU_QUOTA_WARN_RATIO,
+) -> None:
+    """展示 APA 各 job 的 UTC 当日 MinerU 用量，并预警 token 日页数额度。"""
+    from agentkit.mineru import TOKEN_DAILY_PAGE_LIMIT, load_usage_today
+
+    if not 0.0 < warn_ratio <= 1.0:
+        raise ValueError("warn_ratio must be in (0, 1]")
+    if paths is None:
+        override = os.environ.get("LANGHUAN_MINERU_QUOTA", "").strip()
+        if override:
+            paths = [Path(override)]
+        else:
+            paths = []
+            output_roots = [
+                ROOT / "output",
+                ROOT / "skills/archive-plate-assembler/output",
+                SKILLS_DIR / "langhuan-archive-plate-assembler/output",
+            ]
+            for output_root in output_roots:
+                paths.extend(output_root.glob("*/quota_state/mineru_quota.json"))
+                paths.extend(output_root.glob("quota_state/mineru_quota.json"))
+    if not paths:
+        emit("INFO", "platforms", "未发现 MinerU 配额账本（APA 运行后位于 job_dir/quota_state/）")
+        return
+
+    for raw_path in sorted(set(paths), key=str):
+        path = Path(raw_path)
+        if path.name != "mineru_quota.json":
+            if (path / "quota_state" / "mineru_quota.json").is_file():
+                path = path / "quota_state" / "mineru_quota.json"
+            elif path.is_dir():
+                path = path / "mineru_quota.json"
+        if not path.is_file():
+            emit("WARN", "platforms", f"MinerU 配额账本不存在：{path}")
+            continue
+        usage = load_usage_today(path.parent)
+        parts = []
+        for tier in ("flash", "token", "local"):
+            tasks = usage.get(f"{tier}_tasks", 0)
+            pages = usage.get(f"{tier}_pages")
+            if tasks or pages:
+                parts.append(f"{tier} {tasks} 任务/{pages if pages is not None else '?'} 页")
+        if not parts:
+            emit("INFO", "platforms", f"{path.parent}: UTC 当日无 MinerU 用量")
+            continue
+        token_pages = usage.get("token_pages")
+        threshold = TOKEN_DAILY_PAGE_LIMIT * warn_ratio
+        if token_pages is not None and token_pages >= TOKEN_DAILY_PAGE_LIMIT:
+            emit("WARN", "platforms", f"{path.parent}: {'; '.join(parts)}；token 日页数已达/超过 "
+                                      f"{TOKEN_DAILY_PAGE_LIMIT} 页上限，请改用 local 或次日再跑")
+        elif token_pages is not None and token_pages >= threshold:
+            emit("WARN", "platforms", f"{path.parent}: {'; '.join(parts)}；token 日页数超过 "
+                                      f"{warn_ratio:.0%} 预警线（{token_pages}/{TOKEN_DAILY_PAGE_LIMIT}）")
+        else:
+            suffix = "" if token_pages is not None or not usage.get("token_tasks") else "；token 页数未回传"
+            emit("OK", "platforms", f"{path.parent}: {'; '.join(parts)}{suffix}")
+
+
 def check_platforms() -> None:
     """OpenDataLab 体系平台体检（2026-11-12 双平台对接）：只报状态，不判 FAIL。"""
     import importlib.util
@@ -255,6 +323,80 @@ def check_platforms() -> None:
             emit("WARN", "platforms", "Dianshi tools/list 失败：token 可能过期/权限未审批")
 
 
+def _skill_names(root: Path) -> set[str]:
+    return {
+        path.name for path in root.glob("langhuan-*")
+        if path.is_dir() and (path / "SKILL.md").is_file()
+    }
+
+
+def _plugin_skill_names(home: Path) -> set[str]:
+    return {
+        path.name for path in home.glob("plugins/**/skills/langhuan-*")
+        if path.is_dir() and (path / "SKILL.md").is_file()
+    }
+
+
+def _disabled_skills(path: Path) -> set[str]:
+    if not path.is_file():
+        return set()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"无法读取 {path}: {exc}") from exc
+    values = data.get("disabledSkills", []) if isinstance(data, dict) else []
+    if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
+        raise ValueError(f"{path}: disabledSkills 必须是字符串数组")
+    return set(values)
+
+
+def _is_disabled_skill(name: str, disabled: set[str]) -> bool:
+    return name in disabled or any(value.endswith(f":{name}") for value in disabled)
+
+
+def check_duplicate_skills(
+    skills_dir: Optional[Path] = None,
+    workbuddy_home: Optional[Path] = None,
+    trae_home: Optional[Path] = None,
+    members: Optional[set[str]] = None,
+) -> None:
+    """只读报告同名技能来源；停用仍由用户在对应宿主中显式执行。"""
+    shared_root = skills_dir or Path(
+        os.environ.get("LANGHUAN_SKILLS_DIR", Path.home() / ".agents" / "skills")
+    )
+    wb_home = workbuddy_home or Path(
+        os.environ.get("LANGHUAN_WORKBUDDY_HOME", Path.home() / ".workbuddy")
+    )
+    trae = trae_home or Path(os.environ.get("LANGHUAN_TRAE_HOME", Path.home() / ".trae-cn"))
+    known = members or {f"langhuan-{path.name}" for path in (ROOT / "skills").iterdir()
+                        if path.is_dir() and (path / "SKILL.md").is_file()}
+    shared = _skill_names(shared_root) & known
+    for host, home, local_root in (
+        ("WorkBuddy", wb_home, wb_home / "skills"),
+        ("TRAE", trae, trae / "skills"),
+    ):
+        local = _skill_names(local_root) & known
+        plugins = _plugin_skill_names(home) & known
+        duplicates = (shared | local) & plugins
+        try:
+            disabled = _disabled_skills(home / "skill-config.json")
+        except ValueError as exc:
+            emit("WARN", "origins", f"{host}: {exc}")
+            disabled = set()
+        if duplicates:
+            active = {name for name in duplicates if not _is_disabled_skill(name, disabled)}
+            if active:
+                emit("WARN", "origins", f"{host}: {len(active)} 个同名技能可能重复命中 "
+                                       f"({', '.join(sorted(active)[:3])}{'…' if len(active) > 3 else ''})；"
+                                       "请在宿主 UI/disabledSkills 停用其中一份，勿删除共享技能树")
+            else:
+                emit("OK", "origins", f"{host}: {len(duplicates)} 个同名技能均已列入 disabledSkills")
+        elif plugins:
+            emit("OK", "origins", f"{host}: {len(plugins)} 个插件技能，无同名技能形态重叠")
+        else:
+            emit("INFO", "origins", f"{host}: 未发现插件技能；共享 {len(shared)} / 宿主 {len(local)}")
+
+
 def check_hosts() -> None:
     for name, path, desc in HOST_HINTS:
         if path.exists():
@@ -263,17 +405,42 @@ def check_hosts() -> None:
             emit("INFO", "hosts", f"{name}: 未发现 {path}（未安装或未初始化）")
 
 
-def main() -> int:
-    print("LangHuan doctor — 环境体检（凭证只显示末 4 位指纹，不回显明文）\n")
+def main(argv: Optional[list[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="LangHuan 环境体检（不回显密钥明文）")
+    parser.add_argument("--offline", action="store_true", help="跳过平台网络探测，保留全部本地检查")
+    parser.add_argument("--json", action="store_true", help="仅输出机器可读 JSON 摘要")
+    args = parser.parse_args(argv)
+    global _json_output
+    _json_output = args.json
+    _findings.clear()
+    if not args.json:
+        print("LangHuan doctor — 环境体检（凭证只显示末 4 位指纹，不回显明文）\n")
     check_python()
     check_venvs()
     env_slots = check_creds()
     check_settings(env_slots)
     check_hosts()
-    check_platforms()
+    check_duplicate_skills()
+    if args.offline:
+        emit("INFO", "platforms", "--offline：跳过 MinerU/Sciverse/Dianshi 网络探测")
+    else:
+        check_platforms()
+    check_mineru_quota()
     fails = sum(1 for level, _, _ in _findings if level == "FAIL")
     warns = sum(1 for level, _, _ in _findings if level == "WARN")
-    print(f"\n结果：{fails} FAIL / {warns} WARN" + (" — 存在需修复项" if fails else " — 无阻断项"))
+    if args.json:
+        print(json.dumps({
+            "ok": fails == 0,
+            "fail": fails,
+            "warn": warns,
+            "offline": args.offline,
+            "findings": [
+                {"level": level, "group": group, "message": message}
+                for level, group, message in _findings
+            ],
+        }, ensure_ascii=False))
+    else:
+        print(f"\n结果：{fails} FAIL / {warns} WARN" + (" — 存在需修复项" if fails else " — 无阻断项"))
     return 1 if fails else 0
 
 

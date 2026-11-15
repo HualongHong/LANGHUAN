@@ -54,7 +54,7 @@ export function buildSchemasteryConfig(z) {
 
   return z.object({
     providers: vol(z.dict(providerEntry).default(DEFAULT_PROVIDERS))
-      .description('模型运营商注册表（以 provider id 为键；出厂为 LangHuan 10 预置）'),
+      .description('模型运营商注册表（以 provider id 为键；出厂为 LangHuan 11 预置）'),
     annotationProvider: vol(z.string().default(DEFAULT_ANNOTATION_PROVIDER))
       .description('标注角色（阶段 A）选用的 provider id；置空表示不写入'),
     decisionProvider: vol(z.string().default(DEFAULT_DECISION_PROVIDER))

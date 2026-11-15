@@ -15,6 +15,7 @@ import { EOL, homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { PROVIDERS_JSON_RELATIVE_PATH } from './presets.js';
+import { assertValidConfig } from './resolve-config.js';
 
 /**
  * 展开路径开头的 ~（仅 ~/ 或恰为 ~ 时；其余原样返回）。
@@ -134,6 +135,7 @@ export function resolveProvidersPath(skillsDir) {
  * @returns {{ path: string, changed: boolean, data: Record<string, any> }}
  */
 export function syncProvidersJson(skillsDir, configSlice) {
+  assertValidConfig(configSlice);
   const path = resolveProvidersPath(skillsDir);
   let existing = null;
   try {

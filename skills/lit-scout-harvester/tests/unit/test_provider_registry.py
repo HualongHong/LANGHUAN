@@ -168,6 +168,57 @@ def test_validate_enabled_missing_base_url():
     assert any("minimax" in e and "base_url" in e for e in errors)
 
 
+@pytest.mark.parametrize("url", ["ftp://example.com/v1", "not a url", "https:///missing-host"])
+def test_validate_rejects_non_http_or_malformed_enabled_endpoint(url):
+    registry = pr.default_registry()
+    registry.get("deepseek").base_url = url
+    errors = pr.validate(registry)
+    assert any("INVALID_INPUT" in error and "base_url" in error for error in errors)
+
+
+def test_validate_allows_disabled_placeholder_endpoint():
+    registry = pr.default_registry()
+    assert "<scnet-endpoint>" in registry.get("scnet_model_deploy").base_url
+    assert pr.validate(registry) == []
+
+
+@pytest.mark.parametrize("field_name", ["ssh_port", "remote_port", "local_port"])
+@pytest.mark.parametrize("value", [-1, 65536, 1.5, True])
+def test_validate_rejects_invalid_ports(field_name, value):
+    registry = pr.default_registry()
+    setattr(registry.get("deepseek"), field_name, value)
+    errors = pr.validate(registry)
+    assert any("INVALID_INPUT" in error and field_name in error for error in errors)
+
+
+def test_validate_port_boundaries_and_zero_sentinel():
+    registry = pr.default_registry()
+    entry = registry.get("deepseek")
+    entry.ssh_port = 1
+    entry.remote_port = 0
+    entry.local_port = 65535
+    assert pr.validate(registry) == []
+
+
+def test_validate_stdio_rejects_any_supplied_port():
+    entry = pr.ProviderEntry(id="stdio_local", type="stdio", ssh_port=0)
+    registry = pr.ProviderRegistry(providers=[entry])
+    assert pr.validate(registry) == []
+    entry.local_port = 7379
+    errors = pr.validate(registry)
+    assert any("stdio" in error and "local_port" in error for error in errors)
+
+
+def test_save_registry_invalid_input_does_not_overwrite(tmp_path):
+    out = tmp_path / "providers.json"
+    out.write_text("original", encoding="utf-8")
+    registry = pr.default_registry()
+    registry.get("deepseek").base_url = "ftp://example.com/v1"
+    with pytest.raises(pr.RegistryError, match="INVALID_INPUT"):
+        pr.save_registry(out, registry)
+    assert out.read_text(encoding="utf-8") == "original"
+
+
 def test_validate_decision_requires_logprobs():
     registry = pr.default_registry()
     # qwen 未声明 logprobs → 决策角色报错
@@ -223,6 +274,7 @@ def test_validate_ssh_tunnel_enabled_requires_fields():
 
 def test_validate_model_deployment_enabled_normal_rules():
     entry = pr.preset_entry("aliyun_model_deploy")
+    entry.base_url = "https://deploy.cn-hangzhou.aliyuncs.com/compatible-mode/v1"
     entry.enabled = True
     assert pr.validate(pr.ProviderRegistry(providers=[entry])) == []
     entry.base_url = ""

@@ -101,6 +101,8 @@ modules:
   # 模块2：研究地地理编码
   geocoder:
     enabled: false
+    gazetteer_path: null          # 自定义 JSON/CSV；与 gazetteer_package 二选一
+    gazetteer_package: null       # 经哈希/license 预检的 OpenDataLab 包目录
     microservice_url: "http://localhost:8000"
     use_llm_fallback: true       # 微服务低置信度时是否调用LLM
     include_coordinates: true    # 是否输出经纬度
@@ -122,6 +124,27 @@ modules:
     schema_path: "lit_scout_harvester/schemas/generic.json"
     prescreen_classifier: null  # 预筛选分类器名称（null=不筛选，全部执行）
     max_terms_per_field: 10      # 每字段最大术语数
+    local_pdf:                   # 本地 PDF 经 MinerU 全文增强（可选，默认关）
+      enabled: false
+      root: "data/pdfs"          # 所有 PDF 路径必须留在该目录内
+      path_field: "PDF"          # 记录中的库内相对路径字段
+      filename_pattern: "{safe_id}.pdf"  # DOI/UT 清洗后的回退文件名
+      mode: auto                 # auto | flash | token | local
+      max_context_chars: 12000   # 单记录 Markdown 注入上限
+      # state_dir: "output/quota_state"  # 可选 MinerU 配额账本
+    sciverse_semantic:           # Sciverse 同论文全文证据增强（可选，默认关）
+      enabled: false
+      top_k: 5                   # 语义候选经 DOI/题名一致性过滤后才采用
+      max_chunks: 2
+      mode: balanced             # fast | balanced | quality
+      expand_context: true       # read_content 扩展前后文，失败保留原 chunk
+      overlap_chars: 300
+      max_context_chars: 4000    # 防止全文证据挤爆抽取 prompt
+    sciverse_fulltext:           # Sciverse 可访问正文分页摄取（可选，默认关）
+      enabled: false
+      page_chars: 4096
+      max_pages: 3
+      max_context_chars: 12000
     
   # 模块5：科学教育专用术语抽取（覆盖通用模块）
   sci_edu_extractor:

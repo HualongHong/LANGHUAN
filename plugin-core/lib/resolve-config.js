@@ -120,6 +120,20 @@ function fallbackValue() {
   };
 }
 
+function isHttpEndpoint(value) {
+  if (typeof value !== 'string' || !/^https?:\/\/[^/\s]/i.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isPort(value, allowZero = false) {
+  return Number.isInteger(value) && (allowZero && value === 0 || value >= 1 && value <= 65535);
+}
+
 /**
  * 角色/启用约束校验（apply 时执行；schemastery 3.18.2 无 .check()，
  * 故两条路径都在 apply 内做）。返回错误列表（空 = 通过）。
@@ -130,8 +144,21 @@ export function validateConfig(config) {
   const errors = [];
   const providers = config.providers ?? {};
   for (const [id, entry] of Object.entries(providers)) {
+    if (entry.type === 'stdio') {
+      for (const field of ['sshPort', 'remotePort', 'localPort']) {
+        if (entry[field] !== undefined && entry[field] !== 0) {
+          errors.push(`INVALID_INPUT: provider '${id}'（stdio）禁止传 ${field}`);
+        }
+      }
+    } else {
+      if (entry.sshPort !== undefined && !isPort(entry.sshPort)) errors.push(`INVALID_INPUT: provider '${id}' 的 sshPort 必须是 1-65535 的整数`);
+      for (const field of ['remotePort', 'localPort']) {
+        if (entry[field] !== undefined && !isPort(entry[field], true)) errors.push(`INVALID_INPUT: provider '${id}' 的 ${field} 必须是 0 或 1-65535 的整数`);
+      }
+    }
     if (entry.enabled) {
       if (!entry.baseUrl) errors.push(`provider '${id}' 已启用但 baseUrl 为空`);
+      else if (entry.type !== 'stdio' && !isHttpEndpoint(entry.baseUrl)) errors.push(`INVALID_INPUT: provider '${id}' 的 baseUrl 必须是合法的 http(s) URL`);
       if (!entry.apiKeyEnv) errors.push(`provider '${id}' 已启用但 apiKeyEnv 为空`);
       if (entry.type === 'ssh_tunnel') {
         if (!entry.sshHost) errors.push(`provider '${id}' 已启用（ssh_tunnel）但 sshHost 为空`);
@@ -168,7 +195,9 @@ export function validateConfig(config) {
 export function assertValidConfig(config) {
   const errors = validateConfig(config);
   if (errors.length) {
-    throw new Error('langhuan 配置校验失败:\n' + errors.map((e) => ` - ${e}`).join('\n'));
+    const error = new Error('langhuan 配置校验失败（INVALID_INPUT）:\n' + errors.map((e) => ` - ${e}`).join('\n'));
+    error.code = 'INVALID_INPUT';
+    throw error;
   }
 }
 

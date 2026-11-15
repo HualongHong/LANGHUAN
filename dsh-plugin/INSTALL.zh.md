@@ -103,5 +103,5 @@ pnpm add <LANGHUAN_REPO>/dsh-plugin
 | 日志无 `[langhuan]` 行 | 花名册行缩进/顶层数组位置是否正确；`pnpm why @langhuan/dsh-plugin` 确认包装进 profile |
 | 重启后卡片消失、`~/.langhuan/dsh-plugin.log` 无 boot 行 | 典型为 cordis.patch.yml 出现**两个同 id langhuan 条目**（手动 insert + Host 保存物化）；完全退出 Desktop 后删手动 insert 块 |
 | 卡片在但改配置 providers.json 不更新 | 看 `~/.langhuan/dsh-plugin.log`：`ATTACH-OK path=...` 是否出现、`SYNC-OK` 的 trigger 与 changed 值 |
-| `[langhuan] 配置校验: ...` | 角色指向了不存在/未启用/reserved/缺 logprobs 的条目，按报错改 cordis.patch.yml |
+| `[langhuan] 配置校验: ...` / `INVALID_INPUT` | 角色指向无效，或 enabled 条目 endpoint 非 http(s)、端口越界、stdio 传端口；按报错改 cordis.patch.yml。非法配置不会覆盖 providers.json |
 | `providers.json 落盘失败` | `skillsDir` 是否指向正确技能目录；目录写权限 |

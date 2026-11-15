@@ -189,6 +189,24 @@ export const DEFAULT_PROVIDERS = {
     reserved: false,
     note: 'scnet.cn 超算 model-deploy 专用端点，地址与 key 按平台分配填写',
   },
+  internvl_local: {
+    operator: 'InternVL 本地视觉（vLLM 自托管）',
+    type: 'openai_compatible',
+    baseUrl: 'http://127.0.0.1:8000/v1',
+    apiKeyEnv: 'INTERNVL_API_KEY',
+    sshHost: '',
+    sshPort: 22,
+    sshUser: '',
+    sshKeyPath: '',
+    remoteHost: '',
+    remotePort: 0,
+    localPort: 0,
+    models: [],
+    enabled: false,
+    supportsLogprobs: false,
+    reserved: false,
+    note: 'OpenGVLab InternVL3/3.5 经 vLLM OpenAI 兼容端点本地 serving（vllm serve OpenGVLab/InternVL3-... --port 8000）；vLLM 未设 --api-key 时任填非空值（如 dummy）即可，本地不校验',
+  },
 };
 
 export const DEFAULT_ANNOTATION_PROVIDER = 'deepseek';

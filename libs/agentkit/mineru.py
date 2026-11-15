@@ -60,6 +60,7 @@ ENV_TOKEN_BASE = "MINERU_TOKEN_BASE_URL"
 #: flash 档限制（官方 docs）：超限会被服务端以 -30001/-30003 拒绝，
 #: auto 档据此直接跳过（不浪费一次请求）。
 FLASH_MAX_BYTES = 10 * 1024 * 1024
+TOKEN_DAILY_PAGE_LIMIT = 1000
 
 #: token 档轮询中的"未完成"状态。
 _PENDING_STATES = {"waiting-file", "uploading", "pending", "running", "converting"}
@@ -129,6 +130,27 @@ def default_transport(
 
 def _json_body(payload: Mapping[str, object]) -> bytes:
     return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+
+def load_usage_today(
+    state_dir: Path, now: Optional[datetime] = None
+) -> Dict[str, int]:
+    """读取 UTC 当日的 MinerU 账本；文件缺失或损坏时返回空用量。"""
+    try:
+        data = json.loads((Path(state_dir) / "mineru_quota.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    today = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+    bucket = data.get(today)
+    if not isinstance(bucket, dict):
+        return {}
+    return {
+        key: value
+        for key, value in bucket.items()
+        if isinstance(key, str) and isinstance(value, int) and not isinstance(value, bool) and value >= 0
+    }
 
 
 class _DailyPageLedger:
@@ -392,7 +414,7 @@ class MinerUClient:
             mode="flash",
             markdown=md.body.decode("utf-8", errors="replace"),
             task_id=task_id,
-            meta={"state": "done"},
+            meta=_done_meta(done),
         )
 
     def _flash_url(self, url, page_range, language, is_ocr, enable_table, enable_formula):
@@ -408,7 +430,7 @@ class MinerUClient:
             mode="flash",
             markdown=md.body.decode("utf-8", errors="replace"),
             task_id=task_id,
-            meta={"state": "done"},
+            meta=_done_meta(done),
         )
 
     # ------------------------------------------------------------ token 档
@@ -579,6 +601,14 @@ def _pages_from_meta(meta: Mapping[str, object]) -> Optional[int]:
     return int(total) if isinstance(total, int) and total > 0 else None
 
 
+def _done_meta(done: Mapping[str, object]) -> Dict[str, object]:
+    meta: Dict[str, object] = {"state": "done"}
+    pages = _pages_from_meta(done)
+    if pages is not None:
+        meta["total_pages"] = pages
+    return meta
+
+
 def _doc_from_zip_bytes(body: bytes, mode: str, task_id: str) -> MinerUDoc:
     """token 档 zip → MinerUDoc：full.md 为主，content_list.json 与图片随附。"""
     import io
@@ -601,6 +631,23 @@ def _doc_from_zip_bytes(body: bytes, mode: str, task_id: str) -> MinerUDoc:
         raise MinerUError(f"result zip corrupt: {exc}") from exc
     if not markdown.strip():
         raise MinerUError("result zip contains no markdown")
+    if content_list_json:
+        try:
+            blocks = json.loads(content_list_json)
+        except json.JSONDecodeError:
+            blocks = []
+        if isinstance(blocks, list):
+            page_indexes = [
+                block["page_idx"]
+                for block in blocks
+                if isinstance(block, dict)
+                and isinstance(block.get("page_idx"), int)
+                and not isinstance(block.get("page_idx"), bool)
+                and block["page_idx"] >= 0
+            ]
+            if page_indexes:
+                # content_list 是平台未显式返回 total_pages 时的可验证页数下界。
+                meta["total_pages"] = max(page_indexes) + 1
     return MinerUDoc(
         mode=mode,
         markdown=markdown,
@@ -622,5 +669,7 @@ __all__ = [
     "MinerUTaskFailed",
     "RawResponse",
     "TOKEN_BASE_URL",
+    "TOKEN_DAILY_PAGE_LIMIT",
     "default_transport",
+    "load_usage_today",
 ]

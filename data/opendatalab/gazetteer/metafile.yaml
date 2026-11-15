@@ -1,0 +1,16 @@
+displayName: LangHuan Gazetteer Sample
+license: UNVERIFIED
+taskTypes:
+  - information_extraction
+mediaTypes:
+  - text
+labelTypes:
+  - dictionary
+tags:
+  - gazetteer
+  - geocoding
+  - literature
+publisher: LangHuan Suite
+publishDate: 2026-11-15
+publishUrl: https://github.com/HualongHong/LANGHUAN
+paperUrl: ""

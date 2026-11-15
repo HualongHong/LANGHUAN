@@ -117,7 +117,10 @@ class GeocoderModule(ExtractionModule):
 
     def _get_gazetteer(self, config: Dict[str, Any]) -> Gazetteer:
         if self._gazetteer is None:
-            self._gazetteer = Gazetteer(config.get("gazetteer_path"))
+            self._gazetteer = Gazetteer(
+                data_path=config.get("gazetteer_path"),
+                package_path=config.get("gazetteer_package"),
+            )
         return self._gazetteer
 
     def unmatched_report(self) -> Dict[str, Any]:

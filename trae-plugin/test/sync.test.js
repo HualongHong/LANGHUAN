@@ -2,7 +2,7 @@
  * lib/sync.js 单测 —— node:test（无 mocha）。运行：node --test test/
  *
  * 覆盖点：
- * - 默认无覆盖 → providers 为出厂 10 家（对真实 DEFAULT_PROVIDERS 断言）
+ * - 默认无覆盖 → providers 为出厂 11 家（对真实 DEFAULT_PROVIDERS 断言）
  * - 覆盖 deepseek.baseUrl 生效，其余出厂字段不动
  * - disabled/reserved 语义不被无关节径的覆盖改动
  * - 合并不污染共享的 DEFAULT_PROVIDERS 模块对象
@@ -30,16 +30,19 @@ test.before(async () => {
   };
 });
 
-test('默认无覆盖：providers = 出厂 10 家，角色/目录回落默认', () => {
+test('默认无覆盖：providers = 出厂 11 家，角色/目录回落默认', () => {
   const slice = buildConfigSlice(
     { providers: {}, annotationProvider: 'deepseek', decisionProvider: 'deepseek', skillsDir: '~/.agents/skills' },
     DEFAULTS,
   );
-  assert.equal(Object.keys(slice.providers).length, 10);
+  assert.equal(Object.keys(slice.providers).length, 11);
   assert.equal(slice.providers.deepseek.baseUrl, 'https://api.deepseek.com/v1');
   assert.equal(slice.annotationProvider, 'deepseek');
   assert.equal(slice.decisionProvider, 'deepseek');
   assert.equal(slice.skillsDir, '~/.agents/skills');
+  assert.equal(slice.providers.internvl_local.baseUrl, 'http://127.0.0.1:8000/v1');
+  assert.equal(slice.providers.internvl_local.apiKeyEnv, 'INTERNVL_API_KEY');
+  assert.equal(slice.providers.internvl_local.supportsLogprobs, false);
 });
 
 test('覆盖 deepseek.baseUrl 生效，其余出厂字段原样保留', () => {
@@ -88,13 +91,22 @@ test('未知 provider id 原样收录（用户自建运营商）', () => {
     DEFAULTS,
   );
   assert.equal(slice.providers.my_gateway.operator, '自研网关');
-  assert.equal(Object.keys(slice.providers).length, 11);
+  assert.equal(Object.keys(slice.providers).length, 12);
 });
 
 test('非对象覆盖（数组/null/标量）被忽略，不抛错', () => {
   for (const bad of [null, undefined, [], 'deepseek', 42]) {
     const merged = mergeProviderOverrides(DEFAULTS.providers, bad);
-    assert.equal(Object.keys(merged).length, 10);
+    assert.equal(Object.keys(merged).length, 11);
+  }
+});
+
+test('TRAE 两个角色枚举都包含 internvl_local，且说明数组对齐', () => {
+  const properties = require('../package.json').contributes.configuration.properties;
+  for (const key of ['langhuan.annotationProvider', 'langhuan.decisionProvider']) {
+    const setting = properties[key];
+    assert.ok(setting.enum.includes('internvl_local'));
+    assert.equal(setting.enum.length, setting.enumDescriptions.length);
   }
 });
 

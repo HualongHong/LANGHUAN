@@ -127,16 +127,17 @@ def decode_documents(
     pdf_paths: List[str],
     mode: Optional[str] = None,
     client: Optional[MinerUClient] = None,
+    state_dir: Optional[Path] = None,
 ) -> Dict[str, DecodedDoc]:
     """按管道同款排序解码全部源 PDF，返回 {source_pdf: DecodedDoc}。
 
     ``mode`` 缺省读 env（local → 直接返回 {}，零请求）。单个文件失败仅
-    WARN 并跳过（该文件照常走视觉路径）。
+    WARN 并跳过（该文件照常走视觉路径）。``state_dir`` 用于持久化每日配额账本。
     """
     mode = mode if mode is not None else decoder_mode()
     if mode == "local":
         return {}
-    client = client or MinerUClient()
+    client = client or MinerUClient(state_dir=state_dir)
     decoded: Dict[str, DecodedDoc] = {}
     for pdf in sorted(pdf_paths, key=lambda p: infer_page_start(p) or 0):
         try:

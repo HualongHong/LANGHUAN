@@ -18,7 +18,8 @@ LSH 的 enrichment 据 ``None`` 跳过该记录，行为与平台不可用时一
 
 凭据解析顺序：构造参数 → ``SCIVERSE_API_KEY`` → ``SCIVERSE_API_TOKEN`` →
 ``~/.sciverse/credentials.json``（官方 CLI 落盘格式，兼容 api_token/token
-两种键）。无端点级配额记账：429 直接返回 None，由调用方决定退让或降级。
+两种键）。429 遵循 ``Retry-After``：仅在本地等待窗口内有限重试；长窗口直接
+降级并进入冷却，避免批量调用持续撞击限流端点。
 
 ``read_content`` / ``get_resource`` 结果经 :class:`~agentkit.cache.CacheManager`
 磁盘缓存（TTL 7 天，信封内存 ``ts``），命中不发请求；检索类接口不缓存（保新鲜）。
@@ -39,6 +40,8 @@ import urllib.error
 import urllib.request
 import urllib.parse
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Callable, Dict, Mapping, Optional, Tuple
 
@@ -53,6 +56,7 @@ ENV_TOKEN = "SCIVERSE_API_TOKEN"  # 官方 SDK 环境变量名，作兼容回落
 ENV_BASE = "SCIVERSE_BASE_URL"
 CREDENTIALS_PATH = Path.home() / ".sciverse" / "credentials.json"
 CACHE_TTL_SECONDS = 7 * 24 * 3600
+DEFAULT_429_COOLDOWN_SECONDS = 60.0
 _OPENER = no_redirect_opener()
 
 # Transport: (method, url, headers, body, timeout) -> RawResponse
@@ -100,6 +104,23 @@ def resolve_token(explicit: Optional[str] = None) -> Optional[str]:
     return None
 
 
+def _retry_after_seconds(headers: Mapping[str, str], now: float) -> Optional[float]:
+    value = next((v for key, v in headers.items() if key.lower() == "retry-after"), None)
+    if value is None:
+        return None
+    try:
+        return max(0.0, float(str(value).strip()))
+    except ValueError:
+        pass
+    try:
+        parsed = parsedate_to_datetime(str(value))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return max(0.0, parsed.timestamp() - now)
+
+
 class SciverseClient:
     """Sciverse Sci-Base 六端点客户端；全部方法 fail-open 返回 Optional。"""
 
@@ -110,12 +131,23 @@ class SciverseClient:
         timeout: float = 30.0,
         cache: Optional["CacheManager"] = None,
         now: Callable[[], float] = time.time,
+        sleeper: Callable[[float], None] = time.sleep,
+        max_429_retries: int = 1,
+        max_retry_wait: float = 5.0,
     ):
+        if max_429_retries < 0:
+            raise ValueError("max_429_retries must be >= 0")
+        if max_retry_wait < 0:
+            raise ValueError("max_retry_wait must be >= 0")
         self._token = resolve_token(token)
         self._transport = transport or default_transport
         self._timeout = timeout
         self._cache = cache
         self._now = now
+        self._sleeper = sleeper
+        self._max_429_retries = int(max_429_retries)
+        self._max_retry_wait = float(max_retry_wait)
+        self._retry_not_before = 0.0
         self._base = os.environ.get(ENV_BASE, BASE_URL).rstrip("/")
         self.last_error: Optional[str] = None  # 最近一次失败原因（诊断用）
 
@@ -247,19 +279,38 @@ class SciverseClient:
         return headers
 
     def _request(self, method: str, url: str, body: Optional[bytes]) -> Optional[RawResponse]:
+        cooldown = self._retry_not_before - self._now()
+        if cooldown > 0:
+            self._fail(f"HTTP 429 cooldown active ({cooldown:.1f}s remaining)")
+            return None
+        self._retry_not_before = 0.0
         headers = self._headers()
         if body is not None:
             headers["Content-Type"] = "application/json"
-        try:
-            raw = self._transport(method, url, headers, body, self._timeout)
-        except (ConnectionError, OSError) as exc:
-            self._fail(f"network: {exc}")
+        for attempt in range(self._max_429_retries + 1):
+            try:
+                raw = self._transport(method, url, headers, body, self._timeout)
+            except (ConnectionError, OSError) as exc:
+                self._fail(f"network: {exc}")
+                return None
+            if raw.status != 429:
+                break
+            retry_after = _retry_after_seconds(raw.headers, self._now())
+            delay = retry_after if retry_after is not None else min(float(2 ** attempt), self._max_retry_wait)
+            if attempt < self._max_429_retries and delay <= self._max_retry_wait:
+                logger.warning(
+                    "sciverse HTTP 429; retry %d/%d in %.1fs",
+                    attempt + 1, self._max_429_retries, delay,
+                )
+                self._sleeper(delay)
+                continue
+            cooldown = retry_after if retry_after is not None else max(DEFAULT_429_COOLDOWN_SECONDS, delay)
+            self._retry_not_before = self._now() + cooldown
+            detail = f"; retry window {cooldown:.1f}s" if cooldown else ""
+            self._fail(f"HTTP 429 quota/rate limited{detail}")
             return None
         if raw.status in (401, 403):
             self._fail(f"HTTP {raw.status} auth (token missing/invalid?)")
-            return None
-        if raw.status == 429:
-            self._fail("HTTP 429 quota/rate limited")
             return None
         if not 200 <= raw.status < 300:
             self._fail(f"HTTP {raw.status}: {raw.body[:200]!r}")
@@ -334,6 +385,7 @@ __all__ = [
     "BASE_URL",
     "CACHE_TTL_SECONDS",
     "CREDENTIALS_PATH",
+    "DEFAULT_429_COOLDOWN_SECONDS",
     "RawResponse",
     "SciverseClient",
     "default_transport",

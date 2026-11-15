@@ -118,10 +118,16 @@ class LLMClient:
         provider_name: str,
         model: str,
         payload: Dict[str, Any],
+        provider: Optional[LLMProvider] = None,
     ) -> str:
         """Return a SHA256 hash of the request payload for caching."""
         canonical = json.dumps(
-            {"provider": provider_name, "model": model, **payload},
+            {
+                "provider": getattr(provider, "name", "") or provider_name,
+                "base_url": getattr(provider, "base_url", None),
+                "model": model,
+                **payload,
+            },
             sort_keys=True,
             ensure_ascii=False,
         )
@@ -141,6 +147,10 @@ class LLMClient:
         return [("__primary__", self._providers["__primary__"])] + [
             (name, self._providers[name]) for name in self._fallback_order
         ]
+
+    def has_fallbacks(self, model_profile: Optional[str] = None) -> bool:
+        """Whether this request can be answered by more than one provider."""
+        return len(self._resolve_provider(model_profile)) > 1
 
     # -- usage statistics (C6) --------------------------------------------
     def _record_usage(
@@ -225,7 +235,7 @@ class LLMClient:
             if max_tokens:
                 payload["max_tokens"] = max_tokens
 
-            cache_key = self._request_hash(provider_name, model, payload)
+            cache_key = self._request_hash(provider_name, model, payload, provider)
             cached = self.cache.get(cache_key)
             if cached is not None:
                 logger.debug("Cache hit for provider=%s model=%s", provider_name, model)

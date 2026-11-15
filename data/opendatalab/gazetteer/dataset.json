@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "readme": "README.md",
+  "metafile": "metafile.yaml",
+  "files": [
+    {
+      "source": "../../../skills/lit-scout-harvester/data/gazetteer/sample_gazetteer.json",
+      "target": "raw/sample_gazetteer.json",
+      "kind": "gazetteer"
+    },
+    {
+      "source": "../../../skills/lit-scout-harvester/data/alias_mappings/country_aliases.json",
+      "target": "raw/country_aliases.json",
+      "kind": "country_aliases"
+    }
+  ]
+}

@@ -90,6 +90,24 @@ class TestDecodeDocuments:
         assert doc.mode == "token"
         assert doc.task_id == "t1"
 
+    def test_default_client_receives_quota_state_dir(self, tmp_path, monkeypatch):
+        src = tmp_path / "book.pdf"
+        src.write_bytes(b"%PDF-fake")
+        seen = {}
+
+        class FakeClient:
+            def parse_file(self, path, mode="auto"):
+                return MinerUDoc(mode="flash", markdown="# md")
+
+        def factory(state_dir=None):
+            seen["state_dir"] = state_dir
+            return FakeClient()
+
+        monkeypatch.setattr("archive_plate_assembler.decoder.core.MinerUClient", factory)
+        out = decode_documents([str(src)], mode="auto", state_dir=tmp_path / "quota_state")
+        assert out[str(src)].mode == "flash"
+        assert seen["state_dir"] == tmp_path / "quota_state"
+
     def test_failure_falls_back_to_none(self, tmp_path):
         src = tmp_path / "book.pdf"
         src.write_bytes(b"%PDF-fake")

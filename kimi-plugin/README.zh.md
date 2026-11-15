@@ -7,6 +7,7 @@ LangHuan Suite 的 Kimi 插件：把套件**中央模型运营商注册表**（`
 > 网页版/App 仅支持 MCP+Skills 子集，不在目标范围。
 
 - manifest：`kimi.plugin.json`（name `langhuan-provider-card`，v0.1.0）；另备 `.claude-plugin/plugin.json` 同源副本供 Plugin Builder 摄取
+- 双语：`interface.defaultLocale=zh-CN`、`interface.locales=./locales/`，英文翻译在 `locales/en-US.json`
 - 技能：`skills/provider-config/SKILL.md`（providers.json ↔ Kimi 供应商配置字段手册 + Windows setx 引导）
 - 命令：`set-provider`、`show-provider`（Kimi Code 里为 `/langhuan-provider-card:set-provider` 斜杠形式）
 - 同步脚本：`scripts/sync_kimi_providers.py`（Python ≥3.12，零依赖，只读环境变量名、永不读 key 值）
@@ -48,6 +49,18 @@ Plugin Builder 会识别 `.claude-plugin/plugin.json`（已内置同源副本）
 > （Kimi 插件规范硬性要求，裸名字会被转换器误判"组件缺失"丢弃），并补了 LICENSE——
 > 现在转换可**零修复直接通过**。国内网络下 git clone 超时属环境问题，转换器会自动
 > 回退 codeload tarball，无需干预。
+
+### 平台展示与双语元数据
+
+`interface` 默认文本使用中文，包含市场所需的 `developerName`、两条 `tryPrompts`、
+不超过 20 字符的 `shortDescription`，以及 `provider-config` 的 `skillOverrides`。
+`locales/en-US.json` 提供这些展示字段和技能说明的完整英文翻译；未翻译字段由宿主
+回落默认 interface。修改展示文案时必须同步两份 manifest（逐字节一致）与英文
+locale，并运行 `python3 -m pytest -q kimi-plugin/tests/test_plugin_manifest.py`。
+
+字段依据：[Kimi Code CLI 插件清单](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins.html)
+与 [Kimi 开放平台插件包规范](https://platform.kimi.com/docs/hosted-agents/plugins)。
+本地测试只验证结构和引用完整性；市场上架仍以平台审核与在线校验为准。
 
 ### Kimi Code CLI（次要路径）
 

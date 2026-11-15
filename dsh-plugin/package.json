@@ -43,6 +43,9 @@
   "dependencies": {
     "@langhuan/plugin-core": "file:../plugin-core"
   },
+  "scripts": {
+    "test": "node --test"
+  },
   "keywords": [
     "dsh",
     "deepseek-harness",

@@ -8,14 +8,14 @@ LangHuan Suite 的 TRAE 插件：把 LangHuan 技能群的**模型运营商注�
 > 形态）第三方开发文档未发布，暂不覆盖；卡片方案先行，Agent 插件形态列为观察项。
 
 - 形态：纯 JavaScript、无构建步骤的标准 VS Code 扩展（`package.json` + `extension.js` + `lib/`），TRAE 按 VS Code 扩展契约加载（.vsix / 开发态目录）
-- 共享核心：`@langhuan/plugin-core`（ESM，零依赖）——10 家运营商出厂预置、校验、providers.json 原子落盘；与 DSH 插件单点同源
+- 共享核心：`@langhuan/plugin-core`（ESM，零依赖）——11 家运营商出厂预置、校验、providers.json 原子落盘；与 DSH 插件单点同源
 - 许可证：MIT
 
 ## 它做什么
 
 ```
 TRAE 设置卡片（设置里搜 "LangHuan"，写 settings.json）
-  ├─ langhuan.annotationProvider（enum：未配置 + 10 家 provider id）
+  ├─ langhuan.annotationProvider（enum：未配置 + 11 家 provider id）
   ├─ langhuan.decisionProvider（同上）
   ├─ langhuan.skillsDir（默认 ~/.agents/skills）
   └─ langhuan.providers（object，按 id 逐字段覆盖出厂预置，进阶）

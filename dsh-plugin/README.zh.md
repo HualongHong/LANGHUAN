@@ -30,7 +30,7 @@ Lit-Scout-Harvester 两段式标注（annotation → llm 主段；decision → l
 - **密钥红线**：Config 只存 `apiKeyEnv`（环境变量**名**），永不存 key 本体——与内置 `dsh-llm-pi-ai` 的 `apiKeyEnv` 惯例一致（`role('credential-ref')`）。key 值维护在中央 `~/.agents/skills/langhuan.env`（见 `scripts/install_plugin.sh`）。
 - **单向同步**：DSH 配置是本插件管辖区的事实来源；目标文件里 Python 侧新增的未知顶层字段、未知条目字段、以及 DSH 配置之外的本地新增条目，都会被原样保留（合并而非覆盖）。
 - **两条变更路径都会落盘**：① cordis.patch.yml 改动 → 插件重启 → `apply` 重跑；② 图形设置卡片保存 → settings 命名空间 user section（`~/.dsh/settings.yaml`）→ `onChange` 换源重同步（无重启）。内容未变化时跳过写入。
-- **校验 fail-soft + 写前强校验**：apply 时角色约束违反记 `ctx.logger.error` 并继续；图形卡片写入经 settings `validate` 钩子在持久化**之前**拒绝（草稿保留、最后有效值不变），错误同样会被 Python 侧 `validate()` 复核。
+- **宿主 fail-soft + 写前强校验**：apply 不让非法配置导致宿主崩溃，但底层 `syncProvidersJson` 会以 `INVALID_INPUT` 中止落盘；图形卡片写入经 settings `validate` 钩子在持久化**之前**拒绝（草稿保留、最后有效值不变），错误同样会被 Python 侧 `validate()` / `save_registry()` 复核。
 
 ## 图形设置卡片
 
@@ -48,7 +48,7 @@ Lit-Scout-Harvester 两段式标注（annotation → llm 主段；decision → l
 
 ```ts
 interface Config {
-  /** 模型运营商注册表，provider id → 条目；出厂默认 = LangHuan 10 预置 */
+  /** 模型运营商注册表，provider id → 条目；出厂默认 = LangHuan 11 预置 */
   providers: Record<string, {
     operator: string;              // 运营商显示名
     type: 'openai_compatible' | 'openai_compatible_decision' | 'jev_legacy'
@@ -77,7 +77,10 @@ interface Config {
 角色约束（apply 时校验，等价 `.check()`——schemastery 3.18.2 尚无该 API）：
 
 - 角色必须指向**存在且 enabled** 的条目；**reserved 预留入口禁选**；
-- `decisionProvider` 额外要求 `supportsLogprobs === true`（阶段 B 概率输出必需）。
+- `decisionProvider` 额外要求 `supportsLogprobs === true`（阶段 B 概率输出必需）；
+- enabled 条目的 `baseUrl` 必须是合法 `http(s)` URL（disabled 占位地址不阻断）；
+- `sshPort` 限 1–65535 整数；`remotePort/localPort` 允许 0 表示未配置，其余同样限
+  1–65535；stdio 条目禁止传任何非零端口。端口字段省略时沿用既有默认值。
 
 注意：schemastery dict 的默认值**不做按键合并**——patch 里重写 `providers` 时需完整列出要保留的条目（与内置 llm 插件的 patch 写法相同，见下）。
 
@@ -192,6 +195,9 @@ dict 整体替换（默认值不按键合并）。错误与正确写法：
             baseUrl: https://<scnet-endpoint>/v1
             apiKeyEnv: SCNET_DEPLOY_API_KEY
             supportsLogprobs: true
+          internvl_local:
+            baseUrl: http://127.0.0.1:8000/v1
+            apiKeyEnv: INTERNVL_API_KEY
 ```
 
 保存后 DSH 重载该插件 → `apply` 重跑 → providers.json 更新。
@@ -251,3 +257,9 @@ Desktop 0.2.0 上 entry pending 会导致整个 web boot 失败（`web boot: 1 e
 - 浏览器半侧（`lib/client.js`）：DSH 客户端模块系统的 lazy-CJS factory（`window.__ModuleLoader__.load({id, factory(require)})`，契约对照官方 packages/client/{modules,ui-slots,web} 源码、内置 ui-settings-plugins/client.js（0.1.x）与 asar 内 dsh-client-ui-settings 系包（0.2.x））。只 `require` 基座内的 react，故 `dsh.client` 无 `external`；`inject: ["@deepseek-ai/dsh-client-ui-settings"]` 保证 0.1.x settingsScope 提供方先加载。卡片 UI（providers 表格 / ssh_tunnel 隧道参数 / 角色下拉 / logprobs 校验 / reserved 锁定 / apiKeyEnv 只读）两条路径一致。
 - 服务端命名空间注册（0.1.x）：`settings.installSection(ctx, 'langhuan', Config, entry, {validate, setSource, onChange})`（内置 dsh-bash-local 同款；user section 持久化到 `$DSH_HOME/settings.yaml`，watched 文档，写后 setSource 换源 + onChange 重同步 providers.json）。注册需 schemastery schema，故仅 canonical 路径注册；回退路径跳过（记 info 日志）。
 - 目录里 `lib/` 为手写 ESM + 手写 client factory，无构建步骤；改源码即改产物。peerDependencies 仅 `@deepseek-ai/cordis`（仅类型）与 `@deepseek-ai/schemastery`，由 DSH 宿主解析。
+
+## 客户端回归
+
+运行 `npm test`（或 `node --test`）可通过模拟 configForms/scope 直接验证卡片控制器的公开
+store/actions：合法草稿保存、非法 endpoint 字段标红且零 mutate、disabled 占位不阻断、
+既有端口错误与 stdio 非零端口均无法被无关编辑绕过。该测试不替代真实 Desktop UI 验收。

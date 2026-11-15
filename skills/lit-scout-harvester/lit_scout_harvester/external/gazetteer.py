@@ -41,6 +41,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
+from lit_scout_harvester.external.opendatalab import OpenDataLabPackage
+
 BUILTIN_DATA_PATH = (
     Path(__file__).resolve().parents[2] / "data" / "gazetteer" / "sample_gazetteer.json"
 )
@@ -88,8 +90,17 @@ class Gazetteer:
     ``lookup`` 完全确定性：同输入恒同输出，逐字节一致。
     """
 
-    def __init__(self, data_path: Optional[Union[str, Path]] = None):
-        path = Path(data_path) if data_path is not None else BUILTIN_DATA_PATH
+    def __init__(
+        self,
+        data_path: Optional[Union[str, Path]] = None,
+        package_path: Optional[Union[str, Path]] = None,
+    ):
+        if data_path is not None and package_path is not None:
+            raise ValueError("data_path and package_path are mutually exclusive")
+        if package_path is not None:
+            path = OpenDataLabPackage(package_path).path_for("gazetteer")
+        else:
+            path = Path(data_path) if data_path is not None else BUILTIN_DATA_PATH
         self.data_path = path
         self.entries: List[GazetteerEntry] = []
         self._index: Dict[str, Tuple[str, GazetteerEntry]] = {}

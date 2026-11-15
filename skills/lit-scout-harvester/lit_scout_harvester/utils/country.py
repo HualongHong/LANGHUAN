@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pycountry
+
+from lit_scout_harvester.external.opendatalab import OpenDataLabPackage
 
 # C11 署名计数口径（caliber.counting.default_mode 的取值域）。
 COUNTING_FRACTIONAL = "fractional"
@@ -30,9 +32,17 @@ def canonical_counting_mode(mode: str) -> str:
 class CountryNormalizer:
     """Normalize free-text country names to ISO 3166-1 alpha-3 codes."""
 
-    def __init__(self, alias_path: Optional[Path] = None):
+    def __init__(
+        self,
+        alias_path: Optional[Path] = None,
+        package_path: Optional[Union[str, Path]] = None,
+    ):
+        if alias_path is not None and package_path is not None:
+            raise ValueError("alias_path and package_path are mutually exclusive")
         self._aliases: Dict[str, str] = {}
         self._load_default_aliases()
+        if package_path is not None:
+            alias_path = OpenDataLabPackage(package_path).path_for("country_aliases")
         if alias_path is not None:
             self.load_aliases(alias_path)
 

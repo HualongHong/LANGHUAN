@@ -83,7 +83,7 @@ window.__ModuleLoader__.load({
       roleDisabled: '未启用',
       roleReserved: '预留入口，禁止选用',
       roleNoLogprobs: '不支持 logprobs',
-      invalidEnabled: '已启用但 Base URL / 密钥环境变量名为空',
+      invalidEnabled: 'Base URL 必须是合法的 http(s) 地址（启用时必填）',
       tunnelBadge: '隧道',
       tunnelSummaryMissing: 'SSH 参数待填',
       apiKeyEnvHint: '只读：key 的值填在 ~/.agents/skills/langhuan.env（单一事实来源，硬链接分发给各 langhuan-* 技能）。',
@@ -118,7 +118,7 @@ window.__ModuleLoader__.load({
       roleDisabled: 'not enabled',
       roleReserved: 'reserved route, selection disabled',
       roleNoLogprobs: 'logprobs unsupported',
-      invalidEnabled: 'enabled but Base URL / API-key env var is empty',
+      invalidEnabled: 'Base URL must be a valid http(s) URL and is required when enabled',
       tunnelBadge: 'tunnel',
       tunnelSummaryMissing: 'SSH params to fill',
       apiKeyEnvHint: 'Read-only: put the key value in ~/.agents/skills/langhuan.env (single source of truth, hard-linked into every langhuan-* skill).',
@@ -148,13 +148,42 @@ window.__ModuleLoader__.load({
     /** staged 以字符串键存放：'providers.<id>.<field>' 或顶层字段名。 */
     const pathOf = (key) => (key.includes('.') ? key.split('.') : [key]);
 
+    function isHttpEndpoint(value) {
+      if (typeof value !== 'string' || !/^https?:\/\/[^/\s]/i.test(value)) return false;
+      try {
+        const url = new URL(value);
+        return (url.protocol === 'http:' || url.protocol === 'https:') && Boolean(url.hostname);
+      } catch {
+        return false;
+      }
+    }
+
+    function isPort(value, allowZero = false) {
+      return Number.isInteger(value) && (allowZero && value === 0 || value >= 1 && value <= 65535);
+    }
+
     /** 与 Python provider_registry.validate / 服务端 validateConfig 同语义。 */
     function validateResolved(config) {
       const errors = [];
       const providers = config.providers || {};
       for (const [id, entry] of Object.entries(providers)) {
+        if (entry.type === 'stdio') {
+          for (const field of ['sshPort', 'remotePort', 'localPort']) {
+            if (entry[field] !== undefined && entry[field] !== 0) {
+              errors.push({ target: 'providers.' + id + '.' + field, message: 'stdio-port' });
+            }
+          }
+        } else {
+          if (entry.sshPort !== undefined && !isPort(entry.sshPort)) errors.push({ target: 'providers.' + id + '.sshPort', message: 'port-range' });
+          for (const field of ['remotePort', 'localPort']) {
+            if (entry[field] !== undefined && !isPort(entry[field], true)) errors.push({ target: 'providers.' + id + '.' + field, message: 'port-range' });
+          }
+        }
         if (entry.enabled) {
           if (!entry.baseUrl) errors.push({ target: 'providers.' + id, message: 'empty baseUrl' });
+          else if (entry.type !== 'stdio' && !isHttpEndpoint(entry.baseUrl)) {
+            errors.push({ target: 'providers.' + id + '.baseUrl', message: 'invalid-endpoint' });
+          }
           if (!entry.apiKeyEnv) errors.push({ target: 'providers.' + id, message: 'empty apiKeyEnv' });
           if (entry.type === 'ssh_tunnel') {
             if (!entry.sshHost) errors.push({ target: 'providers.' + id, message: 'empty sshHost' });
@@ -254,9 +283,7 @@ window.__ModuleLoader__.load({
         const projected = this.projected();
         const ready = snap.status === 'ready' && projected != null;
         const errors = ready ? validateResolved(projected) : [];
-        const stagedKeys = new Set(this.staged.keys());
-        const invalid = [...this.staged.values()].some((s) => s.invalid)
-          || errors.some((e) => stagedKeys.has(e.target));
+        const invalid = [...this.staged.values()].some((s) => s.invalid) || errors.length > 0;
         const providers = {};
         if (ready) {
           for (const [id, entry] of Object.entries(projected.providers || {})) {
@@ -273,18 +300,19 @@ window.__ModuleLoader__.load({
             }
             for (const field of EDITABLE_FIELDS) {
               const key = 'providers.' + id + '.' + field;
+              const fieldInvalid = errors.some((e) => e.target === key);
               const staged = this.staged.get(key);
               if (staged?.clear) {
                 row.fields[field] = {
                   text: this.formatField(field, this.baseValue(pathOf(key))),
-                  staged: true, invalid: false, overridden: false
+                  staged: true, invalid: fieldInvalid, overridden: false
                 };
               } else if (staged) {
-                row.fields[field] = { text: staged.text, staged: true, invalid: staged.invalid, overridden: !staged.invalid };
+                row.fields[field] = { text: staged.text, staged: true, invalid: staged.invalid || fieldInvalid, overridden: !staged.invalid };
               } else {
                 row.fields[field] = {
                   text: this.formatField(field, entry[field]),
-                  staged: false, invalid: false, overridden: this.isOverridden(key)
+                  staged: false, invalid: fieldInvalid, overridden: this.isOverridden(key)
                 };
               }
             }

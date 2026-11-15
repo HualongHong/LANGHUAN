@@ -93,7 +93,10 @@ def run_pipeline(
             decode_documents, text_only_enabled,
         )
 
-        decoded = decode_documents(sorted(pdf_paths, key=lambda p: infer_page_start(p) or 0))
+        decoded = decode_documents(
+            sorted(pdf_paths, key=lambda p: infer_page_start(p) or 0),
+            state_dir=out / "quota_state",
+        )
         page_ocr: dict[int, str] = {}
         page_text_only: set[int] = set()
         if decoded and text_only_enabled():
